@@ -1,4 +1,4 @@
-# Elso_projekt
+# Project brief
 
 ## 1. The demo
 
