@@ -1,0 +1,14 @@
+{
+  "name": "financial-planning-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-only expense dashboard for OTP + Revolut Excel exports",
+  "scripts": {
+    "test": "node --test",
+    "generate-sample": "node scripts/generate-sample-data.mjs"
+  },
+  "devDependencies": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

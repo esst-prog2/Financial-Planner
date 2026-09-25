@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Financial Planning MVP</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1 data-i18n="pageTitle">Kiadás-áttekintő</h1>
+  <label class="upload">
+    <span data-i18n="languageLabel">Nyelv</span>
+    <select id="language-select">
+      <option value="hu">Magyar</option>
+      <option value="en">English</option>
+    </select>
+  </label>
+  <label class="upload">
+    <span data-i18n="ownerNameLabel">Saját név (a self-transfer felismeréshez, opcionális)</span>
+    <input type="text" id="owner-name" data-i18n-placeholder="ownerNamePlaceholder" placeholder="pl. Fikció Hanna">
+  </label>
+  <label class="upload">
+    <span data-i18n="uploadLabel">Excel feltöltése (OTP + Revolut export)</span>
+    <input type="file" id="file-input" accept=".xlsx">
+  </label>
+</header>
+
+<nav id="view-switch" hidden>
+  <button type="button" data-view="personal" class="active" data-i18n="navPersonal">Személyes áttekintő</button>
+  <button type="button" data-view="joint" data-i18n="navJoint">Közös számla</button>
+</nav>
+
+<main id="app" hidden>
+  <section id="personal-view">
+    <section id="summary" class="card">
+      <h2 data-i18n="summaryHeading">Havi összesítő</h2>
+      <select id="month-select"></select>
+      <p id="summary-text"></p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="incomeHeading">Bevétel forrásonként</h2>
+      <p id="income-total" class="hero-number"></p>
+      <ul id="income-sources"></ul>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="categoryPieHeading">Kategória szerinti bontás</h2>
+      <canvas id="category-pie"></canvas>
+      <div id="category-transactions"></div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="monthlyTrendHeading">Havi trend</h2>
+      <label for="category-filter" data-i18n="categoryFilterLabel">Kategória szűrő:</label>
+      <select id="category-filter">
+        <option value="" data-i18n="allCategoriesOption">Összes</option>
+      </select>
+      <canvas id="monthly-bar"></canvas>
+    </section>
+  </section>
+
+  <section id="joint-view" hidden>
+    <section class="card">
+      <h2 data-i18n="jointPieHeading">Közös számla - teljes kiadás kategóriánként</h2>
+      <select id="joint-month-select"></select>
+      <canvas id="joint-category-pie"></canvas>
+      <div id="joint-category-transactions"></div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="jointTrendHeading">Közös számla - havi trend</h2>
+      <label for="joint-category-filter" data-i18n="categoryFilterLabel">Kategória szűrő:</label>
+      <select id="joint-category-filter">
+        <option value="" data-i18n="allCategoriesOption">Összes</option>
+      </select>
+      <canvas id="joint-monthly-bar"></canvas>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="contributorsHeading">Befizetők</h2>
+      <div id="joint-contributors"></div>
+    </section>
+  </section>
+</main>
+
+<p id="error-message" role="alert" hidden></p>
+
+<!-- SheetJS: .xlsx parsing in the browser. Pulled from SheetJS's own CDN,
+     not the npm mirror - npm is stuck on 0.18.5, which has an unpatched
+     prototype-pollution/ReDoS advisory; this version has the fix. -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<!-- Chart.js: pie/bar charts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
