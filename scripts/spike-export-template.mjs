@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseOtpSheet } from '../js/parseOtp.js';
 import { parseRevolutSheet } from '../js/parseRevolut.js';
+import { csvEscape } from './spike-csv.mjs';
 
 const [, , inputPath, outputPath = 'spike/transactions-to-label.csv'] = process.argv;
 
@@ -39,11 +40,6 @@ if (transactions.length === 0) {
   process.exit(1);
 }
 
-function csvEscape(value) {
-  const s = String(value ?? '');
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 const header = 'index,date,source,description,counterparty,amount,hand_label\n';
 const lines = transactions.map((t, i) =>
   [i, t.date, t.source, csvEscape(t.description), csvEscape(t.counterparty), t.amount, ''].join(','),
@@ -51,5 +47,5 @@ const lines = transactions.map((t, i) =>
 
 writeFileSync(outputPath, header + lines.join('\n') + '\n');
 console.log(`Written ${transactions.length} rows to ${outputPath}.`);
-console.log('Fill in hand_label for every row (one of the app\'s category names), then run:');
-console.log(`  node scripts/spike-measure-accuracy.mjs ${outputPath}`);
+console.log('Either fill in hand_label here directly, or (fewer rows to label) run:');
+console.log(`  node scripts/spike-dedupe-for-labeling.mjs ${outputPath}`);
