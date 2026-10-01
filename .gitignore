@@ -1,1 +1,4 @@
 node_modules/
+
+# Real counterparty names (personal data) - see js/counterpartyRules.js
+js/counterpartyRules.local.js

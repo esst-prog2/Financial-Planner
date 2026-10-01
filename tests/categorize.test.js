@@ -134,17 +134,17 @@ test('a nonzero fee is categorized as Egyéb regardless of the row', () => {
 });
 
 test('a known counterparty name overrides keyword matching', () => {
-  const category = categorizeTransaction({ description: 'AZONNALI FIZETÉS', counterparty: 'Redacted Person A', amount: -8000 });
+  const category = categorizeTransaction({ description: 'AZONNALI FIZETÉS', counterparty: 'Teszt Szolgáltató', amount: -8000 });
   assert.equal(category, 'Szolgáltatások');
 });
 
 test('a known counterparty name overrides the no-match Egyéb fallback too', () => {
-  const category = categorizeTransaction({ description: '', counterparty: 'Redacted Person E', amount: -50000 });
+  const category = categorizeTransaction({ description: '', counterparty: 'Teszt Bérbeadó', amount: -50000 });
   assert.equal(category, 'Számlák/előfizetés');
 });
 
 test('a fuller name variant still matches a counterparty rule by substring', () => {
-  const category = categorizeTransaction({ description: '', counterparty: 'Redacted Person D Full', amount: -30000 });
+  const category = categorizeTransaction({ description: '', counterparty: 'Teszt Bérbeadó Teljes Névvel', amount: -30000 });
   assert.equal(category, 'Számlák/előfizetés');
 });
 
