@@ -18,10 +18,14 @@ const NORMALIZED_OTP_REVOLUT_LINK_KEYWORDS = OTP_REVOLUT_LINK_KEYWORDS.map(norma
 
 const SAVINGS_KEYWORDS = NORMALIZED_SPENDING_CATEGORY_KEYWORDS.find((c) => c.category === 'Megtakarítás').keywords;
 
-const NORMALIZED_COUNTERPARTY_RULES = COUNTERPARTY_CATEGORY_RULES.map(({ names, category }) => ({
-  names: names.map(normalizeText),
-  category,
-}));
+function normalizeCounterpartyRules(rules) {
+  return rules.map(({ names, category }) => ({
+    names: names.map(normalizeText),
+    category,
+  }));
+}
+
+const DEFAULT_NORMALIZED_COUNTERPARTY_RULES = normalizeCounterpartyRules(COUNTERPARTY_CATEGORY_RULES);
 
 // A positive amount matching one of these can be a refund reducing that
 // category, rather than generic income - see the "refund" branch in
@@ -41,11 +45,14 @@ function matchesAny(text, keywords) {
 }
 
 // A known counterparty always wins, regardless of amount sign or what its
-// description would otherwise suggest - see counterpartyRules.js.
-function counterpartyOverrideCategory(transaction) {
+// description would otherwise suggest - see counterpartyRules.js. `rules`
+// defaults to the real (locally-loaded) ones; tests pass their own
+// throwaway rules instead, so no name - real or made-up - needs to live in
+// a committed file just to exercise this mechanism.
+function counterpartyOverrideCategory(transaction, rules = DEFAULT_NORMALIZED_COUNTERPARTY_RULES) {
   const text = normalizeText(transaction.counterparty);
   if (!text) return null;
-  const rule = NORMALIZED_COUNTERPARTY_RULES.find(({ names }) => names.some((n) => text.includes(n)));
+  const rule = rules.find(({ names }) => names.some((n) => text.includes(n)));
   return rule ? rule.category : null;
 }
 
@@ -83,9 +90,12 @@ export function isOtpRevolutLinkTransaction(transaction) {
 }
 
 // Categorizes a transaction's own amount. A row's Díj (fee), if any, is
-// categorized separately - see categorizeFee.
-export function categorizeTransaction(transaction) {
-  const overrideCategory = counterpartyOverrideCategory(transaction);
+// categorized separately - see categorizeFee. `counterpartyRules`, if
+// given, overrides the real counterparty rules for this call only - see
+// counterpartyOverrideCategory.
+export function categorizeTransaction(transaction, { counterpartyRules } = {}) {
+  const normalizedCounterpartyRules = counterpartyRules ? normalizeCounterpartyRules(counterpartyRules) : undefined;
+  const overrideCategory = counterpartyOverrideCategory(transaction, normalizedCounterpartyRules);
   if (overrideCategory) return overrideCategory;
 
   const text = ` ${normalizeText(transaction.description)} `;

@@ -133,19 +133,34 @@ test('a nonzero fee is categorized as Egyéb regardless of the row', () => {
   assert.equal(categorizeFee({ fee: 0 }), null);
 });
 
+// Throwaway rules for these three tests only - never meant to resemble
+// real or even plausible names, just enough to exercise the override
+// mechanism in categorize.js without any name-like data living in a
+// committed file (see counterpartyRules.js).
+const TEST_COUNTERPARTY_RULES = [{ names: ['xq-override-1'], category: 'Szolgáltatások' }];
+
 test('a known counterparty name overrides keyword matching', () => {
-  const category = categorizeTransaction({ description: 'AZONNALI FIZETÉS', counterparty: 'Teszt Szolgáltató', amount: -8000 });
+  const category = categorizeTransaction(
+    { description: 'AZONNALI FIZETÉS', counterparty: 'XQ-OVERRIDE-1', amount: -8000 },
+    { counterpartyRules: TEST_COUNTERPARTY_RULES },
+  );
   assert.equal(category, 'Szolgáltatások');
 });
 
 test('a known counterparty name overrides the no-match Egyéb fallback too', () => {
-  const category = categorizeTransaction({ description: '', counterparty: 'Teszt Bérbeadó', amount: -50000 });
-  assert.equal(category, 'Számlák/előfizetés');
+  const category = categorizeTransaction(
+    { description: '', counterparty: 'XQ-OVERRIDE-1', amount: -50000 },
+    { counterpartyRules: TEST_COUNTERPARTY_RULES },
+  );
+  assert.equal(category, 'Szolgáltatások');
 });
 
 test('a fuller name variant still matches a counterparty rule by substring', () => {
-  const category = categorizeTransaction({ description: '', counterparty: 'Teszt Bérbeadó Teljes Névvel', amount: -30000 });
-  assert.equal(category, 'Számlák/előfizetés');
+  const category = categorizeTransaction(
+    { description: '', counterparty: 'XQ-OVERRIDE-1 Kft.', amount: -30000 },
+    { counterpartyRules: TEST_COUNTERPARTY_RULES },
+  );
+  assert.equal(category, 'Szolgáltatások');
 });
 
 test('isSavingsAccountMovement recognizes the OTP piggy-bank sub-account, sign-independent', () => {
