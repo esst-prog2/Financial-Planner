@@ -2,3 +2,8 @@ node_modules/
 
 # Real counterparty names (personal data) - see js/counterpartyRules.js
 js/counterpartyRules.local.js
+
+# Real bank data used for the keyword-generalization spike - see
+# scripts/spike-export-template.mjs. Only spike-results.json (aggregate
+# counts) is meant to be committed.
+spike/
