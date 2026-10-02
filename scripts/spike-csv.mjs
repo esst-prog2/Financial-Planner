@@ -15,7 +15,7 @@ export function csvEscape(value) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function splitCsvLine(line) {
+function splitCsvLine(line, delimiter) {
   const cells = [];
   let cur = '';
   let inQuotes = false;
@@ -26,18 +26,23 @@ function splitCsvLine(line) {
       else if (c === '"') inQuotes = false;
       else cur += c;
     } else if (c === '"') inQuotes = true;
-    else if (c === ',') { cells.push(cur); cur = ''; }
+    else if (c === delimiter) { cells.push(cur); cur = ''; }
     else cur += c;
   }
   cells.push(cur);
   return cells;
 }
 
+// Strips a leading UTF-8 BOM (Excel writes one) and auto-detects the
+// delimiter: Excel under a Hungarian locale saves CSV with ';' (since ','
+// is the decimal separator there), not ','.
 export function parseCsv(text) {
-  const [headerLine, ...lines] = text.trim().split('\n');
-  const headers = headerLine.split(',');
+  const cleaned = text.replace(/^﻿/, '');
+  const [headerLine, ...lines] = cleaned.trim().split('\n').map((l) => l.replace(/\r$/, ''));
+  const delimiter = (headerLine.match(/;/g) || []).length > (headerLine.match(/,/g) || []).length ? ';' : ',';
+  const headers = splitCsvLine(headerLine, delimiter);
   return lines.filter((l) => l.trim() !== '').map((line) => {
-    const cells = splitCsvLine(line);
+    const cells = splitCsvLine(line, delimiter);
     return Object.fromEntries(headers.map((h, i) => [h, cells[i]]));
   });
 }

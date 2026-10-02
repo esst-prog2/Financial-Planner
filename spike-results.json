@@ -1,0 +1,18 @@
+{
+  "seenMerchants": {
+    "count": 267,
+    "accuracyPercent": 95.5
+  },
+  "newMerchants": {
+    "count": 284,
+    "accuracyPercent": 64.8,
+    "egyebFractionPercent": 38,
+    "excludingAmbiguousEgyebHandLabel": {
+      "ambiguousEgyebHandLabelCount": 20,
+      "ambiguousEgyebHandLabelAgreementCount": 19,
+      "confidentCount": 264,
+      "confidentAccuracyPercent": 62.5
+    }
+  },
+  "skippedUnlabeledRows": 0
+}

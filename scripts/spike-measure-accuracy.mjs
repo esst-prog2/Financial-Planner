@@ -30,6 +30,14 @@ const rows = parseCsv(readFileSync(inputPath, 'utf8'));
 
 let seenTotal = 0, seenCorrect = 0;
 let newTotal = 0, newCorrect = 0, newEgyeb = 0;
+// A hand_label of "Egyéb" can mean two different things: the merchant
+// genuinely doesn't fit any category, or the labeler wasn't sure what the
+// transaction was and used Egyéb as a non-answer. The two can't be told
+// apart after the fact, so accuracy is also reported with these rows
+// excluded entirely - the number to trust more, since an "agreement" with
+// an uncertain hand_label may just be luck, not a real correct guess.
+let newEgyebHandLabelTotal = 0, newEgyebHandLabelAgree = 0;
+let newConfidentTotal = 0, newConfidentCorrect = 0;
 let skippedUnlabeled = 0;
 
 for (const row of rows) {
@@ -44,7 +52,8 @@ for (const row of rows) {
     counterparty: row.counterparty,
     amount: Number(row.amount),
   });
-  const correct = predicted === row.hand_label.trim();
+  const handLabel = row.hand_label.trim();
+  const correct = predicted === handLabel;
 
   if (isSeen) {
     seenTotal++;
@@ -53,6 +62,14 @@ for (const row of rows) {
     newTotal++;
     if (correct) newCorrect++;
     if (predicted === 'Egyéb') newEgyeb++;
+
+    if (handLabel === 'Egyéb') {
+      newEgyebHandLabelTotal++;
+      if (correct) newEgyebHandLabelAgree++;
+    } else {
+      newConfidentTotal++;
+      if (correct) newConfidentCorrect++;
+    }
   }
 }
 
@@ -62,6 +79,14 @@ const result = {
     count: newTotal,
     accuracyPercent: rate(newCorrect, newTotal),
     egyebFractionPercent: rate(newEgyeb, newTotal),
+    // The more trustworthy number: accuracy among new merchants where the
+    // hand_label wasn't itself "Egyéb" (so not a possible non-answer).
+    excludingAmbiguousEgyebHandLabel: {
+      ambiguousEgyebHandLabelCount: newEgyebHandLabelTotal,
+      ambiguousEgyebHandLabelAgreementCount: newEgyebHandLabelAgree,
+      confidentCount: newConfidentTotal,
+      confidentAccuracyPercent: rate(newConfidentCorrect, newConfidentTotal),
+    },
   },
   skippedUnlabeledRows: skippedUnlabeled,
 };
