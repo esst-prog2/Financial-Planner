@@ -58,9 +58,13 @@ function counterpartyOverrideCategory(transaction, rules = DEFAULT_NORMALIZED_CO
 // True for a transaction touching the OTP piggy-bank sub-account ("persely
 // számla"), regardless of amount sign - the user's own money moving
 // between their own OTP sub-accounts, like the OTP<->Revolut self-transfer
-// case, so the pipeline excludes it entirely, both signs.
+// case, so the pipeline excludes it entirely, both signs. Checks both
+// counterparty and description (not one OR the other) - the piggy-bank
+// signal can land in either depending on the OTP transaction type (e.g.
+// "PERSELY SZÁMLA" as the counterparty name, or "ESETI ÁTVEZETÉS
+// PERSELYBE" as the transaction type with an unrelated counterparty).
 export function isPiggyBankMovement(transaction) {
-  const text = normalizeText(transaction.counterparty || transaction.description);
+  const text = normalizeText(`${transaction.counterparty || ''} ${transaction.description || ''}`);
   return matchesAny(text, NORMALIZED_PIGGY_BANK_KEYWORDS);
 }
 

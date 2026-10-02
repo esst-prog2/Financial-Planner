@@ -173,6 +173,16 @@ test('isPiggyBankMovement does not fire for other Megtakarítás-category keywor
   assert.equal(isPiggyBankMovement({ counterparty: 'Magyar Államkincstár', amount: -20000 }), false);
 });
 
+test('isPiggyBankMovement also catches the signal in description, when counterparty is filled with something else', () => {
+  // Regression: counterparty was "Megtakaritasok" (not persely-related) while
+  // the actual piggy-bank signal was in the transaction type/memo text -
+  // checking only counterparty (OR description) missed this real case.
+  assert.equal(
+    isPiggyBankMovement({ counterparty: 'Megtakaritasok', description: 'ESETI ÁTVEZETÉS PERSELYBE Befizetés', amount: -5000 }),
+    true,
+  );
+});
+
 test('isCurrencyConversionMovement recognizes Revolut own-pocket currency exchange, sign-independent', () => {
   assert.equal(isCurrencyConversionMovement({ description: 'Devizaváltás HUF pénznemre', amount: -20 }), true);
   assert.equal(isCurrencyConversionMovement({ description: 'Devizaváltás HUF pénznemre', amount: 7500 }), true);
