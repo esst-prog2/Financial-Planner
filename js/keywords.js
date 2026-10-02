@@ -72,10 +72,10 @@ export const SPENDING_CATEGORY_KEYWORDS = [
   },
   {
     category: 'Megtakarítás',
-    // 'persely' matches the OTP piggy-bank sub-account ("PERSELY SZÁMLA" in
-    // Ellenoldali név) - pipeline.js additionally excludes a *positive*
-    // match entirely (money returning from the sub-account isn't income),
-    // while a negative match still categorizes as Megtakarítás here.
+    // 'persely' is kept here too (even though isPiggyBankMovement below
+    // excludes it from the pipeline entirely, both signs) so a direct
+    // categorizeTransaction() call - outside the pipeline, e.g. in a test -
+    // still gives a sensible answer rather than falling to Egyéb.
     keywords: ['megtakarítás', 'betétlekötés', 'sajátszámla', 'befektetés', 'kincstár', 'persely'],
   },
   {
@@ -91,6 +91,18 @@ export const SPENDING_CATEGORY_KEYWORDS = [
 ];
 
 export const CASH_WITHDRAWAL_KEYWORDS = ['készpénzfelvét', 'atm'];
+
+// The OTP piggy-bank sub-account ("PERSELY SZÁMLA" in Ellenoldali név) -
+// money moving either direction between the main account and this
+// sub-account is the user's own money, not spending or income, so it's
+// excluded entirely (both signs), the same way as an OTP<->Revolut
+// self-transfer - see isPiggyBankMovement in categorize.js and its use in
+// pipeline.js. Kept separate from Megtakarítás's own keyword list above
+// (which also includes 'persely') so this exclusion stays scoped to the
+// piggy bank specifically, not every Megtakarítás-category keyword - a
+// real state-treasury transfer (kincstár) should still count as real
+// savings spending, not be excluded like this.
+export const PIGGY_BANK_KEYWORDS = ['persely'];
 
 // Revolut's own currency-exchange-between-own-pockets transactions (e.g.
 // "Devizaváltás HUF pénznemre") - appears on BOTH the source and

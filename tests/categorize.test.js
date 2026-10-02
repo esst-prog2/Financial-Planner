@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { categorizeTransaction, categorizeFee, isSavingsAccountMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction } from '../js/categorize.js';
+import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction } from '../js/categorize.js';
 
 const examples = [
   ['Élelmiszer', 'SPAR MAGYARORSZAG KFT.'],
@@ -163,10 +163,14 @@ test('a fuller name variant still matches a counterparty rule by substring', () 
   assert.equal(category, 'Szolgáltatások');
 });
 
-test('isSavingsAccountMovement recognizes the OTP piggy-bank sub-account, sign-independent', () => {
-  assert.equal(isSavingsAccountMovement({ counterparty: 'PERSELY SZÁMLA', amount: 15000 }), true);
-  assert.equal(isSavingsAccountMovement({ counterparty: 'PERSELY SZÁMLA', amount: -15000 }), true);
-  assert.equal(isSavingsAccountMovement({ counterparty: 'SPAR MAGYARORSZAG KFT.', amount: -4500 }), false);
+test('isPiggyBankMovement recognizes the OTP piggy-bank sub-account, sign-independent', () => {
+  assert.equal(isPiggyBankMovement({ counterparty: 'PERSELY SZÁMLA', amount: 15000 }), true);
+  assert.equal(isPiggyBankMovement({ counterparty: 'PERSELY SZÁMLA', amount: -15000 }), true);
+  assert.equal(isPiggyBankMovement({ counterparty: 'SPAR MAGYARORSZAG KFT.', amount: -4500 }), false);
+});
+
+test('isPiggyBankMovement does not fire for other Megtakarítás-category keywords (e.g. kincstár) - only the piggy bank itself', () => {
+  assert.equal(isPiggyBankMovement({ counterparty: 'Magyar Államkincstár', amount: -20000 }), false);
 });
 
 test('isCurrencyConversionMovement recognizes Revolut own-pocket currency exchange, sign-independent', () => {

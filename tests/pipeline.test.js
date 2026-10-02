@@ -69,7 +69,7 @@ test('full pipeline: parses, excludes self-transfers and contributions, categori
   assert.equal(fee.amountHuf, -(0.13 * eurRate));
 });
 
-test('OTP piggy-bank (persely) sub-account: positive is excluded entirely, negative is Megtakarítás', () => {
+test('OTP piggy-bank (persely) sub-account: excluded entirely, both signs', () => {
   const otpRows = [
     ...Array.from({ length: 14 }, () => ['meta']),
     OTP_HEADER,
@@ -79,9 +79,7 @@ test('OTP piggy-bank (persely) sub-account: positive is excluded entirely, negat
   const emptyRev = [REV_HEADER];
   const items = buildLineItems({ otp: otpRows, 'rev-eur': emptyRev, 'rev-hu': emptyRev, 'rev-joint': emptyRev }, {});
 
-  assert.equal(items.length, 1, 'the positive persely movement must not appear at all');
-  assert.equal(items[0].category, 'Megtakarítás');
-  assert.equal(items[0].amountHuf, -3000);
+  assert.equal(items.length, 0, 'neither direction of the persely movement should appear');
 });
 
 test('Revolut own-pocket currency conversion: both EUR-side and HUF-side rows are excluded entirely, but a fee on the row still counts as Egyéb', () => {

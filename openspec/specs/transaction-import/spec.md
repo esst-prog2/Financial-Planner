@@ -58,15 +58,15 @@ For every transaction, the system SHALL populate a `counterparty` field identify
 - **THEN** the transaction's `counterparty` field is set to the raw description
 
 ### Requirement: OTP piggy-bank sub-account exclusion
-The system SHALL exclude a positive-amount transaction whose counterparty identifies the OTP piggy-bank sub-account ("persely számla") from both income and spending totals, the same way a self-transfer is excluded - it represents the user's own money moving between their own OTP sub-accounts, not real income. A negative-amount transaction to the same sub-account is unaffected by this exclusion.
+The system SHALL exclude a transaction whose counterparty identifies the OTP piggy-bank sub-account ("persely számla") from both income and spending totals, regardless of amount sign, the same way a self-transfer is excluded - it represents the user's own money moving between their own OTP sub-accounts, never real income or real spending.
 
 #### Scenario: money returning from the piggy-bank sub-account
 - **WHEN** a positive-amount OTP transaction's counterparty is "PERSELY SZÁMLA"
 - **THEN** the transaction is excluded entirely from income and spending totals
 
-#### Scenario: money going into the piggy-bank sub-account is unaffected
+#### Scenario: money going into the piggy-bank sub-account
 - **WHEN** a negative-amount OTP transaction's counterparty is "PERSELY SZÁMLA"
-- **THEN** the transaction is categorized normally (as Megtakarítás), not excluded
+- **THEN** the transaction is excluded entirely from income and spending totals, not categorized as Megtakarítás
 
 ### Requirement: Currency conversion exclusion
 The system SHALL exclude a Revolut own-pocket currency-conversion transaction (description matching a currency-conversion keyword, e.g. "Devizaváltás HUF pénznemre") from both income and spending totals, regardless of amount sign. Such a row appears on both the source-currency and destination-currency sheets, and neither side represents real spending or income - it is the user's own money moving between their own currency pockets. A nonzero fee attached to the row is unaffected by this exclusion and still counts as Egyéb.

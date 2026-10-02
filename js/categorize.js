@@ -1,4 +1,4 @@
-import { SPENDING_CATEGORY_KEYWORDS, CASH_WITHDRAWAL_KEYWORDS, CURRENCY_CONVERSION_KEYWORDS, OTP_REVOLUT_LINK_KEYWORDS } from './keywords.js';
+import { SPENDING_CATEGORY_KEYWORDS, CASH_WITHDRAWAL_KEYWORDS, CURRENCY_CONVERSION_KEYWORDS, OTP_REVOLUT_LINK_KEYWORDS, PIGGY_BANK_KEYWORDS } from './keywords.js';
 import { COUNTERPARTY_CATEGORY_RULES } from './counterpartyRules.js';
 import { normalizeText } from './util.js';
 
@@ -15,8 +15,7 @@ const NORMALIZED_SPENDING_CATEGORY_KEYWORDS = SPENDING_CATEGORY_KEYWORDS.map(({ 
 const NORMALIZED_CASH_WITHDRAWAL_KEYWORDS = CASH_WITHDRAWAL_KEYWORDS.map(normalizeText);
 const NORMALIZED_CURRENCY_CONVERSION_KEYWORDS = CURRENCY_CONVERSION_KEYWORDS.map(normalizeText);
 const NORMALIZED_OTP_REVOLUT_LINK_KEYWORDS = OTP_REVOLUT_LINK_KEYWORDS.map(normalizeText);
-
-const SAVINGS_KEYWORDS = NORMALIZED_SPENDING_CATEGORY_KEYWORDS.find((c) => c.category === 'Megtakarítás').keywords;
+const NORMALIZED_PIGGY_BANK_KEYWORDS = PIGGY_BANK_KEYWORDS.map(normalizeText);
 
 function normalizeCounterpartyRules(rules) {
   return rules.map(({ names, category }) => ({
@@ -56,14 +55,13 @@ function counterpartyOverrideCategory(transaction, rules = DEFAULT_NORMALIZED_CO
   return rule ? rule.category : null;
 }
 
-// True for a transaction touching a savings-type sub-account (e.g. the OTP
-// piggy-bank "persely számla"), regardless of amount sign. The pipeline
-// uses this to exclude only the *positive* case entirely (money returning
-// from the sub-account isn't income) - a negative match still flows
-// through categorizeTransaction() as Megtakarítás, unaffected.
-export function isSavingsAccountMovement(transaction) {
+// True for a transaction touching the OTP piggy-bank sub-account ("persely
+// számla"), regardless of amount sign - the user's own money moving
+// between their own OTP sub-accounts, like the OTP<->Revolut self-transfer
+// case, so the pipeline excludes it entirely, both signs.
+export function isPiggyBankMovement(transaction) {
   const text = normalizeText(transaction.counterparty || transaction.description);
-  return matchesAny(text, SAVINGS_KEYWORDS);
+  return matchesAny(text, NORMALIZED_PIGGY_BANK_KEYWORDS);
 }
 
 // True for Revolut's own currency-exchange-between-own-pockets rows (e.g.

@@ -2,7 +2,7 @@ import { parseOtpSheet } from './parseOtp.js';
 import { parseRevolutSheet } from './parseRevolut.js';
 import { detectSelfTransferIndices } from './selfTransfer.js';
 import { isJointContribution, splitJointAmount } from './jointAccount.js';
-import { categorizeTransaction, categorizeFee, isSavingsAccountMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction } from './categorize.js';
+import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction } from './categorize.js';
 import { toHuf } from './currency.js';
 
 // sheets: { otp, 'rev-eur', 'rev-hu', 'rev-joint' } - each a 2D array of
@@ -39,11 +39,10 @@ export function buildLineItems(sheets, { ownerName } = {}) {
       });
     }
 
-    // A positive-amount savings-account movement (e.g. money returning from
-    // the OTP piggy-bank sub-account) is the user's own money, not income -
-    // excluded entirely, like a self-transfer. The negative-amount case is
-    // unaffected and still categorizes normally (as Megtakarítás).
-    const isExcludedSavingsMovement = t.amount > 0 && isSavingsAccountMovement(t);
+    // Money moving either direction between the main account and the OTP
+    // piggy-bank sub-account is the user's own money, not spending or
+    // income - excluded entirely, like a self-transfer, regardless of sign.
+    const isExcludedPiggyBankMovement = isPiggyBankMovement(t);
 
     // Revolut's own currency-exchange-between-own-pockets rows (e.g.
     // "Devizaváltás HUF pénznemre") appear on both the source and
@@ -61,7 +60,7 @@ export function buildLineItems(sheets, { ownerName } = {}) {
     if (
       excludedSelfTransfer.has(i) ||
       isJointContribution(t) ||
-      isExcludedSavingsMovement ||
+      isExcludedPiggyBankMovement ||
       isExcludedCurrencyConversion ||
       isExcludedOtpRevolutLink
     ) {
