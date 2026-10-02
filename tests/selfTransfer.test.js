@@ -56,9 +56,12 @@ test('does not exclude an incoming (positive-amount) transaction just because it
   assert.equal(excluded.has(0), false);
 });
 
-test('matching the surname alone ("Karácsony", which also means "Christmas") would false-positive, so only the given name is used', () => {
+test('matching the surname alone would risk false positives (e.g. a real Hungarian surname like "Karácsony" also means "Christmas"), so only the given name is used', () => {
   const transactions = [
-    { source: 'otp', date: '2026-09-08', amount: -5000, currency: 'HUF', description: 'KARÁCSONYI VÁSÁR', counterparty: '' },
+    // "Fikció" (the surname) alone, without "Hanna" (the given name), must
+    // not trigger the exclusion - a transaction mentioning only the
+    // surname is not assumed to be about the owner.
+    { source: 'otp', date: '2026-09-08', amount: -5000, currency: 'HUF', description: 'FIKCIÓ KIADÓ VÁSÁRLÁS', counterparty: '' },
   ];
   const excluded = detectSelfTransferIndices(transactions, { ownerName: 'Fikció Hanna' });
   assert.equal(excluded.has(0), false);
