@@ -26,20 +26,31 @@ export function detectSelfTransferIndices(transactions, { ownerName } = {}) {
     }
   }
 
-  // Revolut -> own name: e.g. "Átutalás neki: <ownerName>". Matches on the
-  // literal owner name (accent/case-insensitively, like the rest of the
-  // categorizer - real exports often strip accents), so a transfer to
-  // someone else who shares that first name would also match - an accepted
-  // MVP limitation.
+  // Any OUTGOING (negative-amount) transaction mentioning the owner's own
+  // given name, in description OR counterparty, on either side (OTP or
+  // Revolut) - deliberately blunt, not limited to a specific "Átutalás
+  // neki: <name>" pattern, so it also catches cases like an OTP transfer
+  // funding the user's own joint account, which doesn't pair-match
+  // (different date/amount) and doesn't mention "revolut". Positive
+  // amounts are deliberately excluded from this check - real incoming
+  // payments routinely name the recipient (e.g. a salary memo like "MUN
+  // Fikció Hanna"), which would otherwise wrongly exclude real income.
+  // Matches accent/case-insensitively (real exports often strip accents).
+  // Only the given name (ownerName's last word, Hungarian surname-first
+  // order) is used, not the full name - matching the surname too risks
+  // false positives when it's also an ordinary word (e.g. "Karácsony" also
+  // means "Christmas"). A transfer to someone else who shares that given
+  // name would also match - an accepted limitation.
   if (ownerName) {
-    const needle = normalizeText(ownerName.trim());
-    transactions.forEach((t, i) => {
-      if (t.source === 'otp' || excluded.has(i)) return;
-      const desc = normalizeText(t.description || '');
-      if (desc.includes('atutalas') && desc.includes(needle)) {
-        excluded.add(i);
-      }
-    });
+    const nameParts = normalizeText(ownerName.trim()).split(/\s+/).filter(Boolean);
+    const needle = nameParts[nameParts.length - 1];
+    if (needle) {
+      transactions.forEach((t, i) => {
+        if (excluded.has(i) || !(t.amount < 0)) return;
+        const text = normalizeText(`${t.description || ''} ${t.counterparty || ''}`);
+        if (text.includes(needle)) excluded.add(i);
+      });
+    }
   }
 
   return excluded;

@@ -19,7 +19,7 @@
 import * as XLSX from 'xlsx';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { buildLineItems } from '../js/pipeline.js';
-import { resolveSheetName } from '../js/util.js';
+import { resolveSheetName, normalizeText } from '../js/util.js';
 import { csvEscape, ensureDirFor } from './spike-csv.mjs';
 
 const [, , inputPath, outputPath = 'spike/transactions-to-label.csv', ownerName = ''] = process.argv;
@@ -42,7 +42,18 @@ for (const name of CANONICAL_SHEET_NAMES) {
   sheets[name] = XLSX.utils.sheet_to_json(workbook.Sheets[actualName], { header: 1, raw: true });
 }
 
-const items = buildLineItems(sheets, { ownerName }).filter((item) => item.amountHuf < 0);
+// A fee attached to an otherwise-excluded self-transfer still shows up as
+// its own "Egyéb" line item (the live app treats a fee as real money spent
+// even when the transfer itself is excluded - see categorizeFee), so it
+// can still carry the owner's own name in its inherited description -
+// filtered out here too, spike-only, since the user wants a clean,
+// entirely self-transfer-free list to hand-label. This does not change
+// the live app's fee behavior.
+const ownerGivenName = normalizeText(ownerName.trim()).split(/\s+/).filter(Boolean).pop();
+
+const items = buildLineItems(sheets, { ownerName })
+  .filter((item) => item.amountHuf < 0)
+  .filter((item) => !ownerGivenName || !normalizeText(`${item.description} ${item.counterparty}`).includes(ownerGivenName));
 
 if (items.length === 0) {
   console.error('No spending rows found after exclusions.');
