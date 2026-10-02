@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toIsoDate, normalizeText, normalizeNameForGrouping } from '../js/util.js';
+import { toIsoDate, normalizeText, normalizeNameForGrouping, resolveSheetName } from '../js/util.js';
 
 test('parses a text-formatted date (bank export style)', () => {
   assert.equal(toIsoDate('2026.09.10 15:49:08'), '2026-09-10');
@@ -45,4 +45,16 @@ test('normalizeNameForGrouping treats accent, case, and word-order variants as t
   assert.equal(normalizeNameForGrouping('Fikció Hanna'), normalizeNameForGrouping('hanna fikcio'));
   assert.equal(normalizeNameForGrouping('Fikció Hanna'), normalizeNameForGrouping('FIKCIO HANNA'));
   assert.notEqual(normalizeNameForGrouping('Fikció Hanna'), normalizeNameForGrouping('Minta Anna'));
+});
+
+test('resolveSheetName finds the canonical name directly when present', () => {
+  assert.equal(resolveSheetName(['otp', 'rev-hu', 'rev-eur'], 'rev-hu'), 'rev-hu');
+});
+
+test('resolveSheetName falls back to a known alias (rev-huf for rev-hu)', () => {
+  assert.equal(resolveSheetName(['otp', 'rev-huf', 'rev-eur'], 'rev-hu'), 'rev-huf');
+});
+
+test('resolveSheetName returns null when neither the canonical name nor an alias is present', () => {
+  assert.equal(resolveSheetName(['otp', 'rev-eur'], 'rev-hu'), null);
 });

@@ -1,6 +1,15 @@
 // Dev-only. Tiny shared CSV helpers for the spike scripts - no quoting
 // edge cases beyond what these scripts themselves write (comma, double
 // quote, newline).
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+// writeFileSync doesn't create missing parent directories (e.g. a fresh
+// clone's gitignored spike/ folder) - call this right before it.
+export function ensureDirFor(filePath) {
+  mkdirSync(dirname(filePath), { recursive: true });
+}
+
 export function csvEscape(value) {
   const s = String(value ?? '');
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

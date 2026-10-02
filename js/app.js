@@ -1,5 +1,6 @@
 import { buildLineItems, monthOf } from './pipeline.js';
 import { parseRevolutSheet } from './parseRevolut.js';
+import { resolveSheetName } from './util.js';
 import { summarizeContributors } from './jointAccount.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from './categorize.js';
 import { categoryTotals, pieEligibleRows, monthlySummary, monthlyTrend, incomeBySource } from './aggregate.js';
@@ -45,9 +46,9 @@ function clearError() {
 function readSheets(workbook) {
   const sheets = {};
   for (const name of SHEET_NAMES) {
-    const sheet = workbook.Sheets[name];
-    if (!sheet) throw new Error(missingSheetMessage(name, lang));
-    sheets[name] = window.XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+    const actualName = resolveSheetName(workbook.SheetNames, name);
+    if (!actualName) throw new Error(missingSheetMessage(name, lang));
+    sheets[name] = window.XLSX.utils.sheet_to_json(workbook.Sheets[actualName], { header: 1, raw: true });
   }
   return sheets;
 }

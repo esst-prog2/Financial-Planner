@@ -21,6 +21,21 @@ export function assertColumns(columnIndex, requiredColumns, sheetName) {
   }
 }
 
+// Sheet names a real export has used, beyond the canonical one this app
+// looks for - observed to vary between OTP/Revolut export runs.
+const SHEET_NAME_ALIASES = {
+  'rev-hu': ['rev-huf'],
+};
+
+// Returns the sheet name actually present in the workbook for a canonical
+// name (the canonical name itself, or a known alias), or null if neither
+// is present.
+export function resolveSheetName(availableNames, canonicalName) {
+  if (availableNames.includes(canonicalName)) return canonicalName;
+  const alias = (SHEET_NAME_ALIASES[canonicalName] || []).find((name) => availableNames.includes(name));
+  return alias || null;
+}
+
 export function isBlankRow(row) {
   return !row || row.every((cell) => cell === undefined || cell === null || cell === '');
 }

@@ -33,6 +33,16 @@ test('counterparty falls back to an empty string when Ellenoldali név is blank'
   assert.equal(salary.counterparty, '');
 });
 
+test('accepts "Tranzakció időpontja" as an alternate spelling of the date column', () => {
+  const rows = [
+    ...reportHeaderBlock(),
+    ['Számlaszám', 'Ellenoldali számlaszám', 'Ellenoldali név', 'Forgalom típusa', 'Közlemény', 'Tranzakció kategória', 'Banki azonosító', 'Tranzakció időpontja', 'Könyvelés dátuma', 'Összeg', 'Devizanem'],
+    ['', '', 'SPAR MAGYARORSZAG KFT.', 'VÁSÁRLÁS KÁRTYÁVAL', '', '', '1', '2026.09.10 15:49:08', 'x', -4500, 'HUF'],
+  ];
+  const [transaction] = parseOtpSheet(rows);
+  assert.equal(transaction.date, '2026-09-10');
+});
+
 test('throws MissingColumnError when a required column is absent', () => {
   const rows = [
     ...reportHeaderBlock(),

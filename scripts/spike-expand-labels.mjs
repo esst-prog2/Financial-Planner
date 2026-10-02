@@ -6,7 +6,7 @@
 //
 // Usage: node scripts/spike-expand-labels.mjs <full-template.csv> <labeled-unique-merchants.csv> [output.csv]
 import { readFileSync, writeFileSync } from 'node:fs';
-import { parseCsv, csvEscape } from './spike-csv.mjs';
+import { parseCsv, csvEscape, ensureDirFor } from './spike-csv.mjs';
 
 const [, , fullPath, labeledUniquePath, outputPath = 'spike/transactions-labeled.csv'] = process.argv;
 if (!fullPath || !labeledUniquePath) {
@@ -30,6 +30,7 @@ const lines = fullRows.map((row) => {
   return [row.index, row.date, row.source, csvEscape(row.description), csvEscape(row.counterparty), row.amount, label].join(',');
 });
 
+ensureDirFor(outputPath);
 writeFileSync(outputPath, header + lines.join('\n') + '\n');
 console.log(`Written ${fullRows.length} rows to ${outputPath}.`);
 if (missing > 0) {

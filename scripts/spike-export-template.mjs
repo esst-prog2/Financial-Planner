@@ -11,7 +11,8 @@ import * as XLSX from 'xlsx';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseOtpSheet } from '../js/parseOtp.js';
 import { parseRevolutSheet } from '../js/parseRevolut.js';
-import { csvEscape } from './spike-csv.mjs';
+import { resolveSheetName } from '../js/util.js';
+import { csvEscape, ensureDirFor } from './spike-csv.mjs';
 
 const [, , inputPath, outputPath = 'spike/transactions-to-label.csv'] = process.argv;
 
@@ -23,8 +24,8 @@ if (!inputPath) {
 const workbook = XLSX.read(readFileSync(inputPath), { type: 'buffer' });
 
 function sheetRows(name) {
-  const sheet = workbook.Sheets[name];
-  return sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) : null;
+  const actualName = resolveSheetName(workbook.SheetNames, name);
+  return actualName ? XLSX.utils.sheet_to_json(workbook.Sheets[actualName], { header: 1, raw: true }) : null;
 }
 
 const transactions = [];
@@ -45,6 +46,7 @@ const lines = transactions.map((t, i) =>
   [i, t.date, t.source, csvEscape(t.description), csvEscape(t.counterparty), t.amount, ''].join(','),
 );
 
+ensureDirFor(outputPath);
 writeFileSync(outputPath, header + lines.join('\n') + '\n');
 console.log(`Written ${transactions.length} rows to ${outputPath}.`);
 console.log('Either fill in hand_label here directly, or (fewer rows to label) run:');
