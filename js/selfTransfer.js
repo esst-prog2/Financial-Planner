@@ -1,3 +1,5 @@
+import { normalizeText } from './util.js';
+
 // Detects transfers of the user's own money between their own accounts, so
 // the pipeline can exclude them from both spending and income totals.
 export function detectSelfTransferIndices(transactions, { ownerName } = {}) {
@@ -25,14 +27,16 @@ export function detectSelfTransferIndices(transactions, { ownerName } = {}) {
   }
 
   // Revolut -> own name: e.g. "Átutalás neki: <ownerName>". Matches on the
-  // literal owner name, so a transfer to someone else who shares that first
-  // name would also match - an accepted MVP limitation.
+  // literal owner name (accent/case-insensitively, like the rest of the
+  // categorizer - real exports often strip accents), so a transfer to
+  // someone else who shares that first name would also match - an accepted
+  // MVP limitation.
   if (ownerName) {
-    const needle = ownerName.trim().toLowerCase();
+    const needle = normalizeText(ownerName.trim());
     transactions.forEach((t, i) => {
       if (t.source === 'otp' || excluded.has(i)) return;
-      const desc = (t.description || '').toLowerCase();
-      if (desc.includes('átutalás') && desc.includes(needle)) {
+      const desc = normalizeText(t.description || '');
+      if (desc.includes('atutalas') && desc.includes(needle)) {
         excluded.add(i);
       }
     });

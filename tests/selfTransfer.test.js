@@ -23,3 +23,11 @@ test('excludes a Revolut-to-own-name transfer', () => {
   assert.equal(excluded.has(0), true);
   assert.equal(excluded.has(1), false);
 });
+
+test('regression: still matches when the export strips accents from the owner name and/or "átutalás"', () => {
+  const transactions = [
+    { source: 'revolut-hu', date: '2026-09-09', amount: -20000, currency: 'HUF', description: 'Atutalas neki: FIKCIO HANNA' },
+  ];
+  const excluded = detectSelfTransferIndices(transactions, { ownerName: 'Fikció Hanna' });
+  assert.equal(excluded.has(0), true);
+});
