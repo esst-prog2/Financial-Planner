@@ -28,7 +28,7 @@ What the first useful version does:
 What it explicitly does NOT do this term:
 
 - No live/automatic bank syncing
-- No AI-based "smart" categorization — just keyword rules
+- No AI-based "smart" categorization — just keyword rules. Measured (spike, 2026-10-02): 95.5% accurate on merchants already used to tune the keywords, but only 62.5–64.8% on merchants never seen before - below the ~70% bar for "keyword rules scale." Manual recategorization is therefore no longer a later-level nice-to-have; it needs to become part of this term's MVP (see PLANNING_LOG.md)
 - No accounts, login, or multi-device sharing — the joint-account view is read-only insight into a shared account, not a multi-user app
 - No budgeting or forecasting (backward-looking analysis only)
 - No mobile app, browser only, and no backend — everything runs client-side
