@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction } from '../js/categorize.js';
+import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction, isCardTopUpMovement } from '../js/categorize.js';
 
 const examples = [
   ['Élelmiszer', 'SPAR MAGYARORSZAG KFT.'],
@@ -211,4 +211,16 @@ test('isOtpRevolutLinkTransaction recognizes an OTP row tied to the user\'s own 
 
 test('isOtpRevolutLinkTransaction never applies to Revolut-side rows themselves', () => {
   assert.equal(isOtpRevolutLinkTransaction({ source: 'revolut-hu', description: 'Revolut something', amount: 5000 }), false);
+});
+
+// Found on a real export (HW5 step 6): a joint-account top-up funded by the
+// other co-holder's card has no OTP-side row in this user's export at all,
+// so pair-matching can never find it - it was wrongly counted as Bevétel.
+test('isCardTopUpMovement recognizes an Apple Pay/card top-up into Revolut', () => {
+  assert.equal(isCardTopUpMovement({ source: 'revolut-joint', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 20000 }), true);
+  assert.equal(isCardTopUpMovement({ source: 'revolut-hu', description: 'Lidl', amount: -3000 }), false);
+});
+
+test('isCardTopUpMovement never applies to OTP-side rows themselves', () => {
+  assert.equal(isCardTopUpMovement({ source: 'otp', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 20000 }), false);
 });

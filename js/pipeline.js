@@ -2,7 +2,7 @@ import { parseOtpSheet } from './parseOtp.js';
 import { parseRevolutSheet } from './parseRevolut.js';
 import { detectSelfTransferIndices } from './selfTransfer.js';
 import { isJointContribution, splitJointAmount } from './jointAccount.js';
-import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction } from './categorize.js';
+import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction, isCardTopUpMovement } from './categorize.js';
 import { toHuf } from './currency.js';
 
 // sheets: { otp, 'rev-eur', 'rev-hu', 'rev-joint' } - each a 2D array of
@@ -57,12 +57,20 @@ export function buildLineItems(sheets, { ownerName } = {}) {
     // pattern-based check catches those regardless.
     const isExcludedOtpRevolutLink = isOtpRevolutLinkTransaction(t);
 
+    // A Revolut row funding the account by card/Apple Pay is the user's
+    // own money moving in from their own linked card, even when
+    // pair-matching can't find the OTP-side debit (e.g. a joint-account
+    // top-up funded by the other co-holder's card, never in this user's
+    // OTP sheet) - found via a real export missing this exclusion.
+    const isExcludedCardTopUp = isCardTopUpMovement(t);
+
     if (
       excludedSelfTransfer.has(i) ||
       isJointContribution(t) ||
       isExcludedPiggyBankMovement ||
       isExcludedCurrencyConversion ||
-      isExcludedOtpRevolutLink
+      isExcludedOtpRevolutLink ||
+      isExcludedCardTopUp
     ) {
       return;
     }
