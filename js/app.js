@@ -299,7 +299,15 @@ fileInput.addEventListener('change', async (event) => {
     renderCategoryFilterOptions();
     app.hidden = false;
     viewSwitch.hidden = false;
+    // Any previously-shown category/income detail is for the old upload's
+    // data - clear it rather than leave it stale.
+    categoryTransactions.innerHTML = '';
+    jointCategoryTransactions.innerHTML = '';
     renderAll();
+    // If the joint view is the one currently visible, it needs its own
+    // re-render too - renderAll() deliberately skips it (see its comment),
+    // and otherwise it would keep showing the previous upload's data.
+    if (!document.getElementById('joint-view').hidden) renderJointView();
   } catch (err) {
     showError(err.message || genericErrorMessage(lang));
   }
@@ -309,12 +317,17 @@ monthSelect.addEventListener('change', () => {
   renderSummary();
   renderIncomeBySource();
   renderCategoryPie();
+  // A previously-clicked category's transaction list is now stale (it was
+  // for the old month) - clear it rather than leave it showing until the
+  // user happens to click a slice again.
+  categoryTransactions.innerHTML = '';
 });
 categoryFilter.addEventListener('change', renderMonthlyBar);
 jointCategoryFilter.addEventListener('change', renderJointMonthlyBar);
 jointMonthSelect.addEventListener('change', () => {
   renderJointCategoryPie();
   renderJointIncome();
+  jointCategoryTransactions.innerHTML = '';
 });
 
 incomeSourcesEl.addEventListener('click', (event) => {
@@ -349,6 +362,11 @@ languageSelect.addEventListener('change', () => {
     renderIncomeBySource();
     renderCategoryPie();
     renderMonthlyBar();
+    // A previously-shown detail list's heading (category label, or a "no
+    // description" fallback) is still in the old language - clear it
+    // rather than leave it stale.
+    categoryTransactions.innerHTML = '';
+    jointCategoryTransactions.innerHTML = '';
     if (!document.getElementById('joint-view').hidden) renderJointView();
   }
 });
