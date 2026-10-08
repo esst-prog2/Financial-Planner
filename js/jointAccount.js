@@ -1,4 +1,4 @@
-import { extractNamedTransferCounterparty, normalizeNameForGrouping } from './util.js';
+import { extractNamedTransferCounterparty, normalizeNameForGrouping, monthOf } from './util.js';
 
 // Contributions are specifically incoming ("tőle") - an outgoing ("neki")
 // transfer from the joint account is spending, not a contribution, so this
@@ -41,11 +41,19 @@ export function summarizeContributors(transactions) {
 // (revolutCounterparty() in parseRevolut.js: the named sender when
 // extractable, otherwise the raw description), normalized the same way as
 // summarizeContributors so the same real source isn't split across rows.
+// month: required - scopes to that month only, like the rest of the joint
+// view's month-scoped pieces (the category pie). An earlier version of
+// this list was all-time, like the old contributor list it replaced - that
+// read as wrong once there was more than one month of data and multiple
+// top-ups to reconcile against a single month's bank statement, so this
+// list is month-scoped instead, unlike the still-all-time contributor
+// totals summarizeContributors itself computes for the exclusion logic.
 // Returns [label, total] pairs sorted largest first, like incomeBySource.
-export function summarizeJointIncome(transactions) {
+export function summarizeJointIncome(transactions, month) {
   const grouped = new Map(); // normalized key -> { label, total }
   for (const t of transactions) {
     if (t.amount <= 0) continue;
+    if (monthOf(t.date) !== month) continue;
     const label = t.counterparty || t.description || '';
     const key = normalizeNameForGrouping(label);
     const existing = grouped.get(key);

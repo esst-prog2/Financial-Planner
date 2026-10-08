@@ -4,6 +4,13 @@ import { detectSelfTransferIndices } from './selfTransfer.js';
 import { isJointContribution, splitJointAmount } from './jointAccount.js';
 import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction, isCardTopUpMovement } from './categorize.js';
 import { toHuf } from './currency.js';
+import { monthOf } from './util.js';
+
+// Re-exported for existing importers (aggregate.js, app.js, tests) -
+// monthOf itself now lives in util.js so jointAccount.js can use it too
+// without creating a circular import (pipeline.js already imports from
+// jointAccount.js).
+export { monthOf };
 
 // sheets: { otp, 'rev-eur', 'rev-hu', 'rev-joint' } - each a 2D array of
 // rows as produced by XLSX.utils.sheet_to_json(sheet, { header: 1 }).
@@ -89,8 +96,4 @@ export function buildLineItems(sheets, { ownerName } = {}) {
   });
 
   return lineItems;
-}
-
-export function monthOf(dateIso) {
-  return dateIso ? dateIso.slice(0, 7) : null;
 }

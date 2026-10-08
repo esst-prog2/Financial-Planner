@@ -216,12 +216,14 @@ function renderJointCategoryPie() {
   });
 }
 
-function renderJointView() {
-  renderJointCategoryPie();
-  renderJointMonthlyBar();
-
+// Scoped to the joint-account view's selected month, like the joint
+// category pie - a found-via-real-use fix: an earlier all-time version
+// mixed every month's top-ups/contributions together, which didn't match a
+// single month's bank statement.
+function renderJointIncome() {
+  const month = jointMonthSelect.value;
   jointIncomeTransactions.innerHTML = '';
-  const incomeRows = summarizeJointIncome(state.jointRaw);
+  const incomeRows = summarizeJointIncome(state.jointRaw, month);
   jointContributors.innerHTML = `<ul>${incomeRows
     .map(
       ([label, total]) =>
@@ -230,13 +232,19 @@ function renderJointView() {
     .join('')}</ul>`;
 }
 
+function renderJointView() {
+  renderJointCategoryPie();
+  renderJointMonthlyBar();
+  renderJointIncome();
+}
+
 // Lists a clicked row's individual transactions (date, amount) from the
-// joint account's "what came in" list - all-time, like the list itself
-// (not month-scoped), keyed by the same normalized grouping it was summed
-// by, since several raw labels (e.g. accent variants) can collapse into one
-// row.
-function renderJointIncomeTransactionList(key, label) {
-  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && normalizeNameForGrouping(tx.counterparty || tx.description || '') === key);
+// joint account's "what came in" list, scoped to the same month the
+// summary row was computed for - keyed by the same normalized grouping it
+// was summed by, since several raw labels (e.g. accent variants) can
+// collapse into one row.
+function renderJointIncomeTransactionList(key, label, month) {
+  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(tx.counterparty || tx.description || '') === key);
   jointIncomeTransactions.innerHTML = `<h3>${label || t('noDescription', lang)}</h3><ul>${rows
     .map((r) => `<li>${r.date} - ${Math.abs(r.amount).toLocaleString('hu-HU')} HUF</li>`)
     .join('')}</ul>`;
@@ -291,7 +299,10 @@ monthSelect.addEventListener('change', () => {
 });
 categoryFilter.addEventListener('change', renderMonthlyBar);
 jointCategoryFilter.addEventListener('change', renderJointMonthlyBar);
-jointMonthSelect.addEventListener('change', renderJointCategoryPie);
+jointMonthSelect.addEventListener('change', () => {
+  renderJointCategoryPie();
+  renderJointIncome();
+});
 
 incomeSourcesEl.addEventListener('click', (event) => {
   const row = event.target.closest('li[data-key]');
@@ -302,7 +313,7 @@ incomeSourcesEl.addEventListener('click', (event) => {
 jointContributors.addEventListener('click', (event) => {
   const row = event.target.closest('li[data-key]');
   if (!row) return;
-  renderJointIncomeTransactionList(row.dataset.key, row.dataset.label);
+  renderJointIncomeTransactionList(row.dataset.key, row.dataset.label, jointMonthSelect.value);
 });
 
 viewSwitch.addEventListener('click', (event) => {

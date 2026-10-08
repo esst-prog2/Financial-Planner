@@ -87,6 +87,10 @@ function fromExcelSerial(serial) {
   return new Date(Date.UTC(1899, 11, 30) + Math.round(serial * 86400000));
 }
 
+export function monthOf(dateIso) {
+  return dateIso ? dateIso.slice(0, 7) : null;
+}
+
 export function toIsoDate(value) {
   if (value === undefined || value === null || value === '') return null;
 

@@ -38,11 +38,11 @@ test('the same contributor combines into one row even with accent/case/word-orde
 
 test('summarizeJointIncome includes a named contributor and a non-"tőle" top-up, not just named transfers', () => {
   const transactions = [
-    { source: 'revolut-joint', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 20000 },
-    { source: 'revolut-joint', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', counterparty: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 15000 },
-    { source: 'revolut-joint', description: 'Lidl', counterparty: 'Lidl', amount: -3000 },
+    { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 20000 },
+    { source: 'revolut-joint', date: '2026-09-12', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', counterparty: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 15000 },
+    { source: 'revolut-joint', date: '2026-09-15', description: 'Lidl', counterparty: 'Lidl', amount: -3000 },
   ];
-  const rows = summarizeJointIncome(transactions);
+  const rows = summarizeJointIncome(transactions, '2026-09');
   assert.deepEqual(rows, [
     ['T TIBI', 20000],
     ['Apple Pay összegű feltöltés a(z) *6052 eszközödön', 15000],
@@ -51,9 +51,18 @@ test('summarizeJointIncome includes a named contributor and a non-"tőle" top-up
 
 test('summarizeJointIncome groups the same contributor written differently into one row', () => {
   const transactions = [
-    { source: 'revolut-joint', description: 'Átutalás tőle: Fikció Hanna', counterparty: 'Fikció Hanna', amount: 20000 },
-    { source: 'revolut-joint', description: 'Átutalás tőle: hanna fikcio', counterparty: 'hanna fikcio', amount: 5000 },
+    { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: Fikció Hanna', counterparty: 'Fikció Hanna', amount: 20000 },
+    { source: 'revolut-joint', date: '2026-09-14', description: 'Átutalás tőle: hanna fikcio', counterparty: 'hanna fikcio', amount: 5000 },
   ];
-  const rows = summarizeJointIncome(transactions);
+  const rows = summarizeJointIncome(transactions, '2026-09');
   assert.deepEqual(rows, [['Fikció Hanna', 25000]]);
+});
+
+test('summarizeJointIncome only includes the selected month, not every month', () => {
+  const transactions = [
+    { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 20000 },
+    { source: 'revolut-joint', date: '2026-10-05', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 9000 },
+  ];
+  assert.deepEqual(summarizeJointIncome(transactions, '2026-09'), [['T TIBI', 20000]]);
+  assert.deepEqual(summarizeJointIncome(transactions, '2026-10'), [['T TIBI', 9000]]);
 });
