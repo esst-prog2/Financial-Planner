@@ -1,4 +1,4 @@
-import { SPENDING_CATEGORY_KEYWORDS, CASH_WITHDRAWAL_KEYWORDS, CURRENCY_CONVERSION_KEYWORDS, OTP_REVOLUT_LINK_KEYWORDS, PIGGY_BANK_KEYWORDS } from './keywords.js';
+import { SPENDING_CATEGORY_KEYWORDS, CASH_WITHDRAWAL_KEYWORDS, CURRENCY_CONVERSION_KEYWORDS, OTP_REVOLUT_LINK_KEYWORDS, PIGGY_BANK_KEYWORDS, CARD_TOPUP_KEYWORDS } from './keywords.js';
 import { COUNTERPARTY_CATEGORY_RULES } from './counterpartyRules.js';
 import { normalizeText } from './util.js';
 
@@ -16,6 +16,7 @@ const NORMALIZED_CASH_WITHDRAWAL_KEYWORDS = CASH_WITHDRAWAL_KEYWORDS.map(normali
 const NORMALIZED_CURRENCY_CONVERSION_KEYWORDS = CURRENCY_CONVERSION_KEYWORDS.map(normalizeText);
 const NORMALIZED_OTP_REVOLUT_LINK_KEYWORDS = OTP_REVOLUT_LINK_KEYWORDS.map(normalizeText);
 const NORMALIZED_PIGGY_BANK_KEYWORDS = PIGGY_BANK_KEYWORDS.map(normalizeText);
+const NORMALIZED_CARD_TOPUP_KEYWORDS = CARD_TOPUP_KEYWORDS.map(normalizeText);
 
 function normalizeCounterpartyRules(rules) {
   return rules.map(({ names, category }) => ({
@@ -89,6 +90,18 @@ export function isOtpRevolutLinkTransaction(transaction) {
   if (transaction.source !== 'otp') return false;
   const text = normalizeText(transaction.description);
   return matchesAny(text, NORMALIZED_OTP_REVOLUT_LINK_KEYWORDS);
+}
+
+// True for a Revolut row funding the account by card/Apple Pay (e.g.
+// "Apple Pay összegű feltöltés a(z) *6052 eszközödön") - the user's own
+// money moving from their own linked card into Revolut, never real income,
+// even when the OTP-side debit can't be found by pair-matching (e.g. a
+// joint-account top-up funded by the other co-holder's own card, which
+// never appears in this user's OTP sheet at all).
+export function isCardTopUpMovement(transaction) {
+  if (transaction.source === 'otp') return false;
+  const text = normalizeText(transaction.description);
+  return matchesAny(text, NORMALIZED_CARD_TOPUP_KEYWORDS);
 }
 
 // Categorizes a transaction's own amount. A row's Díj (fee), if any, is

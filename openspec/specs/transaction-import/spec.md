@@ -89,3 +89,14 @@ The system SHALL exclude an OTP transaction whose description identifies it as t
 #### Scenario: the exclusion never applies to Revolut-side rows themselves
 - **WHEN** a Revolut sheet row's description happens to contain the word "Revolut"
 - **THEN** the exclusion does not apply, since it only matches OTP-side rows
+
+### Requirement: Card top-up exclusion
+The system SHALL exclude a Revolut transaction whose description identifies it as a card/Apple Pay top-up (e.g. "Apple Pay összegű feltöltés a(z) *6052 eszközödön") from income, independent of whether a matching OTP-side debit exists in the uploaded date range - the funding card need not be the uploaded OTP account at all (e.g. a joint-account top-up funded by the other co-holder's own card, which never appears in this user's OTP sheet).
+
+#### Scenario: a card top-up with no matching OTP-side row in range
+- **WHEN** a Revolut row's description is "Apple Pay összegű feltöltés a(z) *6052 eszközödön" and no OTP sheet row pairs with it by date and amount
+- **THEN** the row is still excluded entirely, not counted as Bevétel
+
+#### Scenario: the exclusion never applies to OTP-side rows themselves
+- **WHEN** an OTP sheet row's description happens to contain "eszközödön"
+- **THEN** the exclusion does not apply, since it only matches Revolut-side rows

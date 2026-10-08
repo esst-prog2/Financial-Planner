@@ -22,7 +22,7 @@ export const SPENDING_CATEGORY_KEYWORDS = [
     keywords: [
       'bershka', 'stradivarius', 'zara', 'h&m', 'ruházat', 'tienda', 'decathlon', 'reserved',
       'istyle', 'pirex', 'mango', 'arena', 'calzedonia', 'lush', "women's secret", 'primark',
-      'tezenis', 'new garden', 'tchibo',
+      'tezenis', 'new garden', 'tchibo', 'sportshop',
     ],
   },
   {
@@ -119,3 +119,12 @@ export const CURRENCY_CONVERSION_KEYWORDS = ['devizaváltás'];
 // income, even when the matching Revolut-side row falls outside the
 // uploaded date range and pair-matching (selfTransfer.js) can't find it.
 export const OTP_REVOLUT_LINK_KEYWORDS = ['revolut'];
+
+// A Revolut row funding the account by card/Apple Pay (e.g. "Apple Pay
+// összegű feltöltés a(z) *6052 eszközödön") is always the user's own money
+// moving from their own linked card into Revolut - never real income - even
+// when pair-matching (selfTransfer.js) can't find the OTP-side debit,
+// which happens whenever the funding card isn't the uploaded OTP account at
+// all (found on a real export: a joint-account top-up funded by the other
+// co-holder's own card, which never appears in this user's OTP sheet).
+export const CARD_TOPUP_KEYWORDS = ['eszközödön'];
