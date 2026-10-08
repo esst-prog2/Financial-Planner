@@ -20,8 +20,8 @@ test('no two categories share the same dark-mode color', () => {
 });
 
 test('categoryColor picks the light or dark value explicitly', () => {
-  assert.equal(categoryColor('Élelmiszer', false), '#2a78d6');
-  assert.equal(categoryColor('Élelmiszer', true), '#3987e5');
+  assert.equal(categoryColor('Élelmiszer', false), '#f2cfc9');
+  assert.equal(categoryColor('Élelmiszer', true), '#ab6459');
 });
 
 test('categoryColor falls back gracefully for an unknown category', () => {
