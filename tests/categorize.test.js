@@ -24,6 +24,20 @@ for (const [expected, description] of examples) {
   });
 }
 
+// HW5 ("Make it usable"): the HW4 spike measured that an unfamiliar shop's
+// transaction often lands in the wrong category (new-merchant accuracy
+// 62.5-64.8%, below the course's ~70% bar - see PLANNING_LOG.md, 2026-10-02).
+// "Sportshop Kft" is a planted, fictional shop (not real transaction data -
+// real bank data stays out of this repo) chosen because it currently
+// matches no keyword in any category. The expected category below -
+// Ruházat/bevásárlás, not Sport, since Sport covers doing a sport (gym,
+// pilates, pool), not buying sporting goods - was decided before this test
+// was written or run (PLANNING_LOG.md, 2026-10-08, HW5 step 3).
+test('a transaction from an unfamiliar shop (planted: "Sportshop Kft") categorizes as Ruházat/bevásárlás, not Egyéb', () => {
+  const category = categorizeTransaction({ description: 'VÁSÁRLÁS KÁRTYÁVAL', counterparty: 'Sportshop Kft', amount: -8000 });
+  assert.equal(category, 'Ruházat/bevásárlás');
+});
+
 test('a positive amount with no merchant-category match stays Bevétel', () => {
   const category = categorizeTransaction({ description: 'MUNKABÉR ÁTUTALÁS', amount: 350000 });
   assert.equal(category, 'Bevétel');
