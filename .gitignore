@@ -3,6 +3,12 @@ node_modules/
 # Real counterparty names (personal data) - see js/counterpartyRules.js
 js/counterpartyRules.local.js
 
+# Real device-owner mapping (personal data) - see js/deviceOwners.js
+js/deviceOwners.local.js
+
+# Real name-alias mapping (personal data) - see js/nameAliases.js
+js/nameAliases.local.js
+
 # Real bank data used for the keyword-generalization spike - see
 # scripts/spike-export-template.mjs. Only spike-results.json (aggregate
 # counts) is meant to be committed.

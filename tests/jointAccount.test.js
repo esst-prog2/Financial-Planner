@@ -2,6 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { extractContributorName, isJointContribution, splitJointAmount, summarizeContributors, summarizeJointIncome } from '../js/jointAccount.js';
 
+// Explicit empty overrides keep these tests from depending on whatever
+// (if anything) happens to be in this machine's gitignored local device-
+// owner/name-alias files - see jointIncomeLabel() in js/jointAccount.js.
+const NO_OVERRIDES = { deviceOwners: {}, nameAliases: {} };
+
 test('50% split of a joint expense', () => {
   assert.equal(splitJointAmount(-12000), -6000);
 });
@@ -42,7 +47,7 @@ test('summarizeJointIncome includes a named contributor and a non-"tőle" top-up
     { source: 'revolut-joint', date: '2026-09-12', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', counterparty: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 15000 },
     { source: 'revolut-joint', date: '2026-09-15', description: 'Lidl', counterparty: 'Lidl', amount: -3000 },
   ];
-  const rows = summarizeJointIncome(transactions, '2026-09');
+  const rows = summarizeJointIncome(transactions, '2026-09', NO_OVERRIDES);
   assert.deepEqual(rows, [
     ['T TIBI', 20000],
     ['Apple Pay összegű feltöltés a(z) *6052 eszközödön', 15000],
@@ -54,7 +59,7 @@ test('summarizeJointIncome groups the same contributor written differently into 
     { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: Fikció Hanna', counterparty: 'Fikció Hanna', amount: 20000 },
     { source: 'revolut-joint', date: '2026-09-14', description: 'Átutalás tőle: hanna fikcio', counterparty: 'hanna fikcio', amount: 5000 },
   ];
-  const rows = summarizeJointIncome(transactions, '2026-09');
+  const rows = summarizeJointIncome(transactions, '2026-09', NO_OVERRIDES);
   assert.deepEqual(rows, [['Fikció Hanna', 25000]]);
 });
 
@@ -63,6 +68,26 @@ test('summarizeJointIncome only includes the selected month, not every month', (
     { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 20000 },
     { source: 'revolut-joint', date: '2026-10-05', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 9000 },
   ];
-  assert.deepEqual(summarizeJointIncome(transactions, '2026-09'), [['T TIBI', 20000]]);
-  assert.deepEqual(summarizeJointIncome(transactions, '2026-10'), [['T TIBI', 9000]]);
+  assert.deepEqual(summarizeJointIncome(transactions, '2026-09', NO_OVERRIDES), [['T TIBI', 20000]]);
+  assert.deepEqual(summarizeJointIncome(transactions, '2026-10', NO_OVERRIDES), [['T TIBI', 9000]]);
+});
+
+test('summarizeJointIncome resolves a card top-up to its configured device owner, and merges it with that owner\'s named transfer', () => {
+  const overrides = { deviceOwners: { '*9999': 'Teszt Elek' }, nameAliases: {} };
+  const transactions = [
+    { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: Teszt Elek', counterparty: 'Teszt Elek', amount: 20000 },
+    { source: 'revolut-joint', date: '2026-09-12', description: 'Apple Pay összegű feltöltés a(z) *9999 eszközödön', counterparty: 'Apple Pay összegű feltöltés a(z) *9999 eszközödön', amount: 15000 },
+  ];
+  const rows = summarizeJointIncome(transactions, '2026-09', overrides);
+  assert.deepEqual(rows, [['Teszt Elek', 35000]]);
+});
+
+test('summarizeJointIncome applies a configured name alias so a middle-name variant groups with the canonical name', () => {
+  const overrides = { deviceOwners: {}, nameAliases: { 'TESZT BEATRIX ELEK': 'Teszt Elek' } };
+  const transactions = [
+    { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: Teszt Elek', counterparty: 'Teszt Elek', amount: 20000 },
+    { source: 'revolut-joint', date: '2026-09-11', description: 'Átutalás tőle: TESZT BEATRIX ELEK', counterparty: 'TESZT BEATRIX ELEK', amount: 5000 },
+  ];
+  const rows = summarizeJointIncome(transactions, '2026-09', overrides);
+  assert.deepEqual(rows, [['Teszt Elek', 25000]]);
 });

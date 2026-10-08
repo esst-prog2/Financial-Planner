@@ -56,7 +56,15 @@ The system SHALL show, in the dedicated joint-account view, every positive-amoun
 
 #### Scenario: a card top-up appears in the list even though it is not Bevétel
 - **WHEN** the joint account has a positive-amount card/Apple Pay top-up transaction (excluded from the user's personal Bevétel total)
-- **THEN** it still appears as its own row in the joint-account view's income list, grouped by its description
+- **THEN** it still appears as its own row in the joint-account view's income list, grouped by its description or by its resolved device owner name, if one is configured
+
+#### Scenario: a card top-up with a known device owner is labeled and grouped by that owner's name
+- **WHEN** a card/Apple Pay top-up's device reference has a configured owner name, and that same person also has a named "Átutalás tőle:" transfer in the same month
+- **THEN** the income list shows one combined row under that person's name, not a separate device-code row
+
+#### Scenario: a configured name alias groups a name variant with its canonical name
+- **WHEN** the same real person's contributions appear under two name variants the general accent/case/word-order grouping treats as different (e.g. with vs. without a middle name), and a name alias mapping that variant to a canonical name is configured
+- **THEN** the income list shows a single combined row under the canonical name
 
 #### Scenario: clicking a row lists its individual transactions
 - **WHEN** the user clicks a row in the joint-account view's income list

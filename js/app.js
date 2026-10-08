@@ -1,7 +1,7 @@
 import { buildLineItems, monthOf } from './pipeline.js';
 import { parseRevolutSheet } from './parseRevolut.js';
 import { resolveSheetName } from './util.js';
-import { summarizeJointIncome } from './jointAccount.js';
+import { summarizeJointIncome, jointIncomeLabel } from './jointAccount.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from './categorize.js';
 import { categoryTotals, pieEligibleRows, monthlySummary, monthlyTrend, incomeBySource } from './aggregate.js';
 import { categoryColor } from './categoryColors.js';
@@ -244,7 +244,7 @@ function renderJointView() {
 // was summed by, since several raw labels (e.g. accent variants) can
 // collapse into one row.
 function renderJointIncomeTransactionList(key, label, month) {
-  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(tx.counterparty || tx.description || '') === key);
+  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(jointIncomeLabel(tx)) === key);
   jointIncomeTransactions.innerHTML = `<h3>${label || t('noDescription', lang)}</h3><ul>${rows
     .map((r) => `<li>${r.date} - ${Math.abs(r.amount).toLocaleString('hu-HU')} HUF</li>`)
     .join('')}</ul>`;
