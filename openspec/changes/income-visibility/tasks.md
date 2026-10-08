@@ -22,4 +22,4 @@
 
 ## 5. Spec sync
 
-- [ ] 5.1 After implementation and manual verification above, run the spec-sync step to merge this change's deltas into `openspec/specs/joint-account-handling/spec.md` and `openspec/specs/spending-dashboard/spec.md`, then archive the change
+- [x] 5.1 After implementation and manual verification above, run the spec-sync step to merge this change's deltas into `openspec/specs/joint-account-handling/spec.md` and `openspec/specs/spending-dashboard/spec.md`, then archive the change
