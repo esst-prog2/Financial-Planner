@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toIsoDate, normalizeText, normalizeNameForGrouping, resolveSheetName } from '../js/util.js';
+import { toIsoDate, normalizeText, normalizeNameForGrouping, resolveSheetName, formatHuf } from '../js/util.js';
 
 test('parses a text-formatted date (bank export style)', () => {
   assert.equal(toIsoDate('2026.09.10 15:49:08'), '2026-09-10');
@@ -57,4 +57,12 @@ test('resolveSheetName falls back to a known alias (rev-huf for rev-hu)', () => 
 
 test('resolveSheetName returns null when neither the canonical name nor an alias is present', () => {
   assert.equal(resolveSheetName(['otp', 'rev-eur'], 'rev-hu'), null);
+});
+
+test('formatHuf rounds to whole forints instead of leaking float fraction digits', () => {
+  assert.equal(formatHuf(896611.0660000001), '896 611');
+});
+
+test('formatHuf still groups a clean integer amount with thousands separators', () => {
+  assert.equal(formatHuf(341715), '341 715');
 });

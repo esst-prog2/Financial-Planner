@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STRINGS, CATEGORY_LABELS, LANGUAGES, t, categoryLabel, summaryText } from '../js/i18n.js';
+import { STRINGS, CATEGORY_LABELS, LANGUAGES, t, categoryLabel, summaryLines } from '../js/i18n.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from '../js/categorize.js';
 
 test('every UI string has both languages', () => {
@@ -29,8 +29,19 @@ test('categoryLabel() returns the category itself for canonical (Hungarian) rend
   assert.equal(categoryLabel('Élelmiszer', 'en'), 'Groceries');
 });
 
-test('summaryText formats numbers and picks the right sentence per language', () => {
+test('summaryLines returns income, then spending, then the balance, in that order', () => {
   const values = { spending: 341715, income: 380000, balance: 38285 };
-  assert.match(summaryText('hu', values), /elköltve/);
-  assert.match(summaryText('en', values), /spent/);
+  const huLines = summaryLines('hu', values);
+  assert.deepEqual(
+    huLines.map((l) => l.label),
+    ['Bevétel', 'Kiadás', 'Különbözet'],
+  );
+  assert.deepEqual(
+    huLines.map((l) => l.amount),
+    [380000, 341715, 38285],
+  );
+  assert.deepEqual(
+    summaryLines('en', values).map((l) => l.label),
+    ['Income', 'Spending', 'Balance'],
+  );
 });

@@ -110,3 +110,11 @@ export function toIsoDate(value) {
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
+
+// Forint amounts never carry subunits, but plain `.toLocaleString('hu-HU')`
+// shows up to 3 fraction digits whenever a value isn't a clean integer
+// (e.g. after summing EUR-converted amounts) - round to whole HUF first so
+// every displayed total reads as a normal forint figure.
+export function formatHuf(amount) {
+  return Math.round(amount).toLocaleString('hu-HU');
+}

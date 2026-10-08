@@ -1,12 +1,13 @@
 import { buildLineItems, monthOf } from './pipeline.js';
 import { parseRevolutSheet } from './parseRevolut.js';
-import { resolveSheetName } from './util.js';
+import { resolveSheetName, formatHuf } from './util.js';
 import { summarizeJointIncome, jointIncomeLabel } from './jointAccount.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from './categorize.js';
 import { categoryTotals, pieEligibleRows, monthlySummary, monthlyTrend, incomeBySource } from './aggregate.js';
 import { categoryColor } from './categoryColors.js';
 import { normalizeNameForGrouping } from './util.js';
-import { DEFAULT_LANGUAGE, t, categoryLabel, summaryText as formatSummaryText, missingSheetMessage, genericErrorMessage } from './i18n.js';
+import { DEFAULT_LANGUAGE, t, categoryLabel, summaryLines, missingSheetMessage, genericErrorMessage } from './i18n.js';
+import { loadPreferences, savePreferences } from './preferences.js';
 
 const SHEET_NAMES = ['otp', 'rev-eur', 'rev-hu', 'rev-joint'];
 const ALL_CATEGORIES = [...SPENDING_CATEGORIES, ...NON_SPENDING_CATEGORIES.filter((c) => c !== 'Bevétel')];
@@ -27,9 +28,12 @@ const jointMonthSelect = document.getElementById('joint-month-select');
 const languageSelect = document.getElementById('language-select');
 const incomeTotalEl = document.getElementById('income-total');
 const incomeSourcesEl = document.getElementById('income-sources');
+const ownerNameInput = document.getElementById('owner-name');
+
+const prefs = loadPreferences();
 
 let state = { items: [], jointRaw: [] };
-let lang = DEFAULT_LANGUAGE;
+let lang = prefs.lang || DEFAULT_LANGUAGE;
 let pieChart = null;
 let barChart = null;
 let jointPieChart = null;
@@ -86,15 +90,44 @@ function renderCategoryFilterOptions() {
 // 'change' event on click - a plain element happily carries an ad-hoc
 // `.value` property, so nothing elsewhere needs to change. selectEl keeps
 // its name for that reason, even though it's a <div> now, not a <select>.
+// Sets a month-tabs element's value the same way clicking a tab does
+// (updates .value, the .active class, and fires 'change' for whichever
+// listener re-renders that view) - used both by the click handler below and
+// by the view switch, which carries the currently-selected month over to
+// the other view's month-select when that month exists there too, instead
+// of letting it silently reset to its own default.
+function selectMonth(selectEl, month) {
+  const button = selectEl.querySelector(`button[data-month="${month}"]`);
+  if (!button || month === selectEl.value) return;
+  selectEl.value = month;
+  selectEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === button));
+  selectEl.dispatchEvent(new Event('change'));
+}
+
+// Laid out as a grid, not a plain wrapping row: each calendar month
+// (01-12) owns one column, assigned in the order it first appears, so a
+// month that recurs in a later year (e.g. both 2025-10 and 2026-10) stacks
+// directly under its earlier occurrence instead of just continuing the
+// horizontal flow wherever the row happened to wrap.
 function populateMonthOptions(selectEl, items) {
   const months = [...new Set(items.map((i) => monthOf(i.date)).filter(Boolean))].sort();
-  selectEl.innerHTML = months.map((m) => `<button type="button" data-month="${m}">${m}</button>`).join('');
+  const columnByCalendarMonth = new Map();
+  const rowByCalendarMonth = new Map();
+  const cells = months.map((m) => {
+    const calendarMonth = m.slice(5, 7);
+    if (!columnByCalendarMonth.has(calendarMonth)) columnByCalendarMonth.set(calendarMonth, columnByCalendarMonth.size + 1);
+    const row = (rowByCalendarMonth.get(calendarMonth) || 0) + 1;
+    rowByCalendarMonth.set(calendarMonth, row);
+    return { m, column: columnByCalendarMonth.get(calendarMonth), row };
+  });
+  selectEl.style.setProperty('--month-columns', columnByCalendarMonth.size || 1);
+  selectEl.innerHTML = cells
+    .map(({ m, column, row }) => `<button type="button" data-month="${m}" style="grid-column:${column};grid-row:${row}">${m}</button>`)
+    .join('');
   selectEl.onclick = (event) => {
     const button = event.target.closest('button[data-month]');
-    if (!button || button.dataset.month === selectEl.value) return;
-    selectEl.value = button.dataset.month;
-    selectEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === button));
-    selectEl.dispatchEvent(new Event('change'));
+    if (!button) return;
+    selectMonth(selectEl, button.dataset.month);
   };
   if (months.length) {
     selectEl.value = months[months.length - 1];
@@ -114,19 +147,21 @@ function renderJointMonthOptions(items) {
 function renderSummary() {
   const month = monthSelect.value;
   const { income, spending, balance } = monthlySummary(state.items, month);
-  summaryTextEl.textContent = formatSummaryText(lang, { spending, income, balance });
+  summaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance })
+    .map(({ label, amount }) => `<li>${label}: ${formatHuf(amount)} HUF</li>`)
+    .join('');
 }
 
 function renderIncomeBySource() {
   const month = monthSelect.value;
   const rows = incomeBySource(state.items, month);
   const total = rows.reduce((sum, [, amount]) => sum + amount, 0);
-  incomeTotalEl.textContent = `${total.toLocaleString('hu-HU')} HUF`;
+  incomeTotalEl.textContent = `${formatHuf(total)} HUF`;
   incomeSourcesEl.innerHTML = rows
     .map(
       ([source, amount]) =>
         `<li data-key="${normalizeNameForGrouping(source)}" data-label="${source}">` +
-        `<span class="row-summary">${source || t('noDescription', lang)}: ${amount.toLocaleString('hu-HU')} HUF</span>` +
+        `<span class="row-summary">${source || t('noDescription', lang)}: ${formatHuf(amount)} HUF</span>` +
         `<ul class="row-detail" hidden></ul>` +
         `</li>`,
     )
@@ -147,7 +182,7 @@ function toggleIncomeSourceDetail(row, key, month) {
   const rows = state.items
     .filter((i) => i.category === 'Bevétel' && monthOf(i.date) === month && normalizeNameForGrouping(i.counterparty || i.description || '') === key)
     .sort((a, b) => a.date.localeCompare(b.date));
-  detail.innerHTML = rows.map((r) => `<li>${r.date} - ${Math.abs(r.personalAmountHuf).toLocaleString('hu-HU')} HUF</li>`).join('');
+  detail.innerHTML = rows.map((r) => `<li>${r.date} - ${formatHuf(Math.abs(r.personalAmountHuf))} HUF</li>`).join('');
   detail.hidden = false;
 }
 
@@ -182,7 +217,7 @@ function renderCategoryPie() {
 function renderCategoryTransactionList(category, month) {
   const rows = state.items.filter((i) => i.category === category && monthOf(i.date) === month);
   categoryTransactions.innerHTML = `<h3>${categoryLabel(category, lang)}</h3><ul>${rows
-    .map((r) => `<li>${r.date} - ${r.description || t('noDescription', lang)} - ${Math.abs(r.personalAmountHuf).toLocaleString('hu-HU')} HUF</li>`)
+    .map((r) => `<li>${r.date} - ${r.description || t('noDescription', lang)} - ${formatHuf(Math.abs(r.personalAmountHuf))} HUF</li>`)
     .join('')}</ul>`;
 }
 
@@ -217,7 +252,7 @@ function renderJointMonthlyBar() {
 function renderJointCategoryTransactionList(category, month) {
   const rows = state.items.filter((i) => i.source === 'revolut-joint' && i.category === category && monthOf(i.date) === month);
   jointCategoryTransactions.innerHTML = `<h3>${categoryLabel(category, lang)}</h3><ul>${rows
-    .map((r) => `<li>${r.date} - ${r.description || t('noDescription', lang)} - ${Math.abs(r.amountHuf).toLocaleString('hu-HU')} HUF</li>`)
+    .map((r) => `<li>${r.date} - ${r.description || t('noDescription', lang)} - ${formatHuf(Math.abs(r.amountHuf))} HUF</li>`)
     .join('')}</ul>`;
 }
 
@@ -249,7 +284,7 @@ function renderJointIncome() {
     .map(
       ([label, total]) =>
         `<li data-key="${normalizeNameForGrouping(label)}" data-label="${label}">` +
-        `<span class="row-summary">${label || t('noDescription', lang)}: ${total.toLocaleString('hu-HU')} HUF</span>` +
+        `<span class="row-summary">${label || t('noDescription', lang)}: ${formatHuf(total)} HUF</span>` +
         `<ul class="row-detail" hidden></ul>` +
         `</li>`,
     )
@@ -276,7 +311,7 @@ function toggleJointIncomeDetail(row, key, month) {
   const rows = state.jointRaw
     .filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(jointIncomeLabel(tx)) === key)
     .sort((a, b) => a.date.localeCompare(b.date));
-  detail.innerHTML = rows.map((r) => `<li>${r.date} - ${Math.abs(r.amount).toLocaleString('hu-HU')} HUF</li>`).join('');
+  detail.innerHTML = rows.map((r) => `<li>${r.date} - ${formatHuf(Math.abs(r.amount))} HUF</li>`).join('');
   detail.hidden = false;
 }
 
@@ -306,13 +341,21 @@ fileInput.addEventListener('change', async (event) => {
     const workbook = window.XLSX.read(buffer, { type: 'array', cellDates: true });
     const sheets = readSheets(workbook);
 
-    const items = buildLineItems(sheets, { ownerName: document.getElementById('owner-name')?.value });
+    const items = buildLineItems(sheets, { ownerName: ownerNameInput?.value });
     const jointRaw = parseRevolutSheet(sheets['rev-joint'], 'revolut-joint');
 
     state = { items, jointRaw };
 
     renderMonthOptions(items);
     renderJointMonthOptions(items);
+    // Prefer the month last looked at (if this file has data for it) over
+    // the "last month in the data" default renderMonthOptions just picked -
+    // selectMonth() already no-ops when that month isn't among this view's
+    // options, so this only takes effect when it's actually available.
+    if (prefs.lastMonth) {
+      selectMonth(monthSelect, prefs.lastMonth);
+      selectMonth(jointMonthSelect, prefs.lastMonth);
+    }
     renderCategoryFilterOptions();
     app.hidden = false;
     monthBar.hidden = false;
@@ -326,6 +369,12 @@ fileInput.addEventListener('change', async (event) => {
     // re-render too - renderAll() deliberately skips it (see its comment),
     // and otherwise it would keep showing the previous upload's data.
     if (!document.getElementById('joint-view').hidden) renderJointView();
+    // First upload of the session: restore whichever view was active last
+    // time, by driving the real click handler (same toggling/rendering path
+    // a manual click takes) rather than duplicating its logic here.
+    if (prefs.lastView === 'joint' && document.getElementById('personal-view').hidden === false) {
+      viewSwitch.querySelector('button[data-view="joint"]')?.click();
+    }
   } catch (err) {
     showError(err.message || genericErrorMessage(lang));
   }
@@ -339,6 +388,7 @@ monthSelect.addEventListener('change', () => {
   // for the old month) - clear it rather than leave it showing until the
   // user happens to click a slice again.
   categoryTransactions.innerHTML = '';
+  savePreferences({ lastMonth: monthSelect.value });
 });
 categoryFilter.addEventListener('change', renderMonthlyBar);
 jointCategoryFilter.addEventListener('change', renderJointMonthlyBar);
@@ -346,6 +396,7 @@ jointMonthSelect.addEventListener('change', () => {
   renderJointCategoryPie();
   renderJointIncome();
   jointCategoryTransactions.innerHTML = '';
+  savePreferences({ lastMonth: jointMonthSelect.value });
 });
 
 incomeSourcesEl.addEventListener('click', (event) => {
@@ -364,6 +415,7 @@ viewSwitch.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-view]');
   if (!button) return;
   const view = button.dataset.view;
+  savePreferences({ lastView: view });
   viewSwitch.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === button));
   document.getElementById('personal-view').hidden = view !== 'personal';
   document.getElementById('joint-view').hidden = view !== 'joint';
@@ -374,11 +426,18 @@ viewSwitch.addEventListener('click', (event) => {
   monthSelect.hidden = view !== 'personal';
   jointMonthSelect.hidden = view !== 'joint';
 
+  // Carry the currently-selected month over to the view being switched to,
+  // when that month also exists there - so picking a month doesn't get
+  // silently forgotten just by flipping between Personal and Joint.
+  if (view === 'joint') selectMonth(jointMonthSelect, monthSelect.value);
+  else selectMonth(monthSelect, jointMonthSelect.value);
+
   if (view === 'joint' && state.items.length) renderJointView();
 });
 
 languageSelect.addEventListener('change', () => {
   lang = languageSelect.value;
+  savePreferences({ lang });
   applyStaticTranslations();
   renderCategoryFilterOptions();
   if (state.items.length) {
@@ -398,3 +457,5 @@ languageSelect.addEventListener('change', () => {
 applyStaticTranslations();
 renderCategoryFilterOptions();
 languageSelect.value = lang;
+if (ownerNameInput && prefs.ownerName) ownerNameInput.value = prefs.ownerName;
+ownerNameInput?.addEventListener('change', () => savePreferences({ ownerName: ownerNameInput.value }));

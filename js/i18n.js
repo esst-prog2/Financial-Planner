@@ -13,6 +13,9 @@ export const STRINGS = {
   navPersonal: { hu: 'Személyes áttekintő', en: 'Personal overview' },
   navJoint: { hu: 'Közös számla', en: 'Joint account' },
   summaryHeading: { hu: 'Havi összesítő', en: 'Monthly summary' },
+  summaryIncomeLabel: { hu: 'Bevétel', en: 'Income' },
+  summarySpendingLabel: { hu: 'Kiadás', en: 'Spending' },
+  summaryBalanceLabel: { hu: 'Különbözet', en: 'Balance' },
   incomeHeading: { hu: 'Bevétel forrásonként', en: 'Income by source' },
   categoryPieHeading: { hu: 'Kategória szerinti bontás', en: 'Spending by category' },
   monthlyTrendHeading: { hu: 'Havi trend', en: 'Monthly trend' },
@@ -55,13 +58,15 @@ export function categoryLabel(category, lang) {
   return entry[lang] || entry[DEFAULT_LANGUAGE];
 }
 
-export function summaryText(lang, { spending, income, balance }) {
-  const spendingStr = spending.toLocaleString('hu-HU');
-  const incomeStr = income.toLocaleString('hu-HU');
-  const balanceStr = balance.toLocaleString('hu-HU');
-  return lang === 'en'
-    ? `This month: ${spendingStr} HUF spent, ${incomeStr} HUF income, ${balanceStr} HUF remaining.`
-    : `Ez a hónap: ${spendingStr} HUF elköltve, ${incomeStr} HUF bevétel, ${balanceStr} HUF marad.`;
+// One line per figure, in a fixed order (income, then spending, then the
+// difference) - rendered as a bulleted list rather than one flowing
+// sentence.
+export function summaryLines(lang, { spending, income, balance }) {
+  return [
+    { label: t('summaryIncomeLabel', lang), amount: income },
+    { label: t('summarySpendingLabel', lang), amount: spending },
+    { label: t('summaryBalanceLabel', lang), amount: balance },
+  ];
 }
 
 export function missingSheetMessage(sheetName, lang) {

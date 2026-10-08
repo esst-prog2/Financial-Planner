@@ -136,22 +136,23 @@ input[type='file']::file-selector-button {
 }
 
 .month-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  display: grid;
+  grid-template-columns: repeat(var(--month-columns, 12), minmax(0, 1fr));
+  gap: 0.3rem;
 }
 
 .month-tabs button {
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
-  padding: 0.4rem 0.9rem;
+  letter-spacing: 0.01em;
+  padding: 0.4rem 0.3rem;
   border: 1px solid var(--pink-200);
   background: var(--pink-50);
   color: var(--ink-soft);
   cursor: pointer;
   border-radius: var(--radius-pill);
+  white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -213,6 +214,16 @@ nav#view-switch button.active {
 
 canvas {
   max-height: 360px;
+}
+
+#summary-text {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+#summary-text li {
+  padding: 0.2rem 0;
+  font-size: 1.05rem;
 }
 
 .hero-number {
