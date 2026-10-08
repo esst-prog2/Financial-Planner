@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Financial Planning MVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -26,6 +29,11 @@
   </label>
 </header>
 
+<div id="month-bar" hidden>
+  <div id="month-select" class="month-tabs"></div>
+  <div id="joint-month-select" class="month-tabs" hidden></div>
+</div>
+
 <nav id="view-switch" hidden>
   <button type="button" data-view="personal" class="active" data-i18n="navPersonal">Személyes áttekintő</button>
   <button type="button" data-view="joint" data-i18n="navJoint">Közös számla</button>
@@ -35,7 +43,6 @@
   <section id="personal-view">
     <section id="summary" class="card">
       <h2 data-i18n="summaryHeading">Havi összesítő</h2>
-      <select id="month-select"></select>
       <p id="summary-text"></p>
     </section>
 
@@ -64,7 +71,6 @@
   <section id="joint-view" hidden>
     <section class="card">
       <h2 data-i18n="jointPieHeading">Közös számla - teljes kiadás kategóriánként</h2>
-      <select id="joint-month-select"></select>
       <canvas id="joint-category-pie"></canvas>
       <div id="joint-category-transactions"></div>
     </section>

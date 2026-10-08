@@ -15,6 +15,7 @@ const fileInput = document.getElementById('file-input');
 const errorMessage = document.getElementById('error-message');
 const app = document.getElementById('app');
 const viewSwitch = document.getElementById('view-switch');
+const monthBar = document.getElementById('month-bar');
 const monthSelect = document.getElementById('month-select');
 const summaryTextEl = document.getElementById('summary-text');
 const categoryFilter = document.getElementById('category-filter');
@@ -79,10 +80,26 @@ function renderCategoryFilterOptions() {
   jointCategoryFilter.value = previousJoint;
 }
 
+// Renders the available months as a row of tab buttons instead of a
+// native <select> dropdown, while keeping the same interface the rest of
+// this file already relies on: a settable/readable `.value` and a
+// 'change' event on click - a plain element happily carries an ad-hoc
+// `.value` property, so nothing elsewhere needs to change. selectEl keeps
+// its name for that reason, even though it's a <div> now, not a <select>.
 function populateMonthOptions(selectEl, items) {
   const months = [...new Set(items.map((i) => monthOf(i.date)).filter(Boolean))].sort();
-  selectEl.innerHTML = months.map((m) => `<option value="${m}">${m}</option>`).join('');
-  if (months.length) selectEl.value = months[months.length - 1];
+  selectEl.innerHTML = months.map((m) => `<button type="button" data-month="${m}">${m}</button>`).join('');
+  selectEl.onclick = (event) => {
+    const button = event.target.closest('button[data-month]');
+    if (!button || button.dataset.month === selectEl.value) return;
+    selectEl.value = button.dataset.month;
+    selectEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === button));
+    selectEl.dispatchEvent(new Event('change'));
+  };
+  if (months.length) {
+    selectEl.value = months[months.length - 1];
+    selectEl.querySelector(`button[data-month="${selectEl.value}"]`)?.classList.add('active');
+  }
   return months;
 }
 
@@ -298,6 +315,7 @@ fileInput.addEventListener('change', async (event) => {
     renderJointMonthOptions(items);
     renderCategoryFilterOptions();
     app.hidden = false;
+    monthBar.hidden = false;
     viewSwitch.hidden = false;
     // Any previously-shown category/income detail is for the old upload's
     // data - clear it rather than leave it stale.
@@ -349,6 +367,12 @@ viewSwitch.addEventListener('click', (event) => {
   viewSwitch.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === button));
   document.getElementById('personal-view').hidden = view !== 'personal';
   document.getElementById('joint-view').hidden = view !== 'joint';
+  // The month-tabs row above the view switch shows whichever month set
+  // belongs to the now-active view - the two can differ, since the joint
+  // account doesn't necessarily have data in every month the personal
+  // view does.
+  monthSelect.hidden = view !== 'personal';
+  jointMonthSelect.hidden = view !== 'joint';
 
   if (view === 'joint' && state.items.length) renderJointView();
 });
