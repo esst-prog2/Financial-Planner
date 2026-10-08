@@ -6,6 +6,7 @@
   "description": "Browser-only expense dashboard for OTP + Revolut Excel exports",
   "scripts": {
     "test": "node --test",
+    "serve": "node scripts/serve.mjs",
     "generate-sample": "node scripts/generate-sample-data.mjs",
     "spike-template": "node scripts/spike-export-template.mjs",
     "spike-dedupe": "node scripts/spike-dedupe-for-labeling.mjs",
