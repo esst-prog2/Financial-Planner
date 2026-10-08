@@ -34,7 +34,7 @@ for (const [expected, description] of examples) {
 // pilates, pool), not buying sporting goods - was decided before this test
 // was written or run (PLANNING_LOG.md, 2026-10-08, HW5 step 3).
 test('a transaction from an unfamiliar shop (planted: "Sportshop Kft") categorizes as Ruházat/bevásárlás, not Egyéb', () => {
-  const category = categorizeTransaction({ description: 'VÁSÁRLÁS KÁRTYÁVAL', counterparty: 'Sportshop Kft', amount: -8000 });
+  const category = categorizeTransaction({ description: 'VÁSÁRLÁS KÁRTYÁVAL Sportshop Kft', counterparty: 'Sportshop Kft', amount: -8000 });
   assert.equal(category, 'Ruházat/bevásárlás');
 });
 

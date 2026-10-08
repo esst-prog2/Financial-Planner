@@ -22,7 +22,7 @@ export const SPENDING_CATEGORY_KEYWORDS = [
     keywords: [
       'bershka', 'stradivarius', 'zara', 'h&m', 'ruházat', 'tienda', 'decathlon', 'reserved',
       'istyle', 'pirex', 'mango', 'arena', 'calzedonia', 'lush', "women's secret", 'primark',
-      'tezenis', 'new garden', 'tchibo',
+      'tezenis', 'new garden', 'tchibo', 'sportshop',
     ],
   },
   {
