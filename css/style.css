@@ -75,6 +75,17 @@ canvas {
   margin: 0.25rem 0 0.75rem;
 }
 
-#income-sources {
+#income-sources,
+#joint-contributors ul {
   padding-left: 1.25rem;
+}
+
+#income-sources li[data-key],
+#joint-contributors li[data-key] {
+  cursor: pointer;
+}
+
+.row-detail {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
 }

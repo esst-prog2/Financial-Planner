@@ -26,8 +26,6 @@ const jointMonthSelect = document.getElementById('joint-month-select');
 const languageSelect = document.getElementById('language-select');
 const incomeTotalEl = document.getElementById('income-total');
 const incomeSourcesEl = document.getElementById('income-sources');
-const incomeSourceTransactions = document.getElementById('income-source-transactions');
-const jointIncomeTransactions = document.getElementById('joint-income-transactions');
 
 let state = { items: [], jointRaw: [] };
 let lang = DEFAULT_LANGUAGE;
@@ -107,26 +105,33 @@ function renderIncomeBySource() {
   const rows = incomeBySource(state.items, month);
   const total = rows.reduce((sum, [, amount]) => sum + amount, 0);
   incomeTotalEl.textContent = `${total.toLocaleString('hu-HU')} HUF`;
-  incomeSourceTransactions.innerHTML = '';
   incomeSourcesEl.innerHTML = rows
     .map(
       ([source, amount]) =>
-        `<li data-key="${normalizeNameForGrouping(source)}" data-label="${source}">${source || t('noDescription', lang)}: ${amount.toLocaleString('hu-HU')} HUF</li>`,
+        `<li data-key="${normalizeNameForGrouping(source)}" data-label="${source}">` +
+        `<span class="row-summary">${source || t('noDescription', lang)}: ${amount.toLocaleString('hu-HU')} HUF</span>` +
+        `<ul class="row-detail" hidden></ul>` +
+        `</li>`,
     )
     .join('');
 }
 
-// Lists a clicked income source's individual Bevétel transactions for the
-// selected month (date, amount) - mirrors renderCategoryTransactionList's
-// click-to-list behavior, but keyed by the normalized source name rather
-// than category, since several raw labels can collapse into one row.
-function renderIncomeSourceTransactionList(key, label, month) {
-  const rows = state.items.filter(
-    (i) => i.category === 'Bevétel' && monthOf(i.date) === month && normalizeNameForGrouping(i.counterparty || i.description || '') === key,
-  );
-  incomeSourceTransactions.innerHTML = `<h3>${label || t('noDescription', lang)}</h3><ul>${rows
-    .map((r) => `<li>${r.date} - ${Math.abs(r.personalAmountHuf).toLocaleString('hu-HU')} HUF</li>`)
-    .join('')}</ul>`;
+// Toggles a clicked income source's individual Bevétel transactions - date
+// order - open or closed, right under that row (not in a separate area).
+// Mirrors renderCategoryTransactionList's click-to-list behavior, but keyed
+// by the normalized source name rather than category, since several raw
+// labels can collapse into one row.
+function toggleIncomeSourceDetail(row, key, month) {
+  const detail = row.querySelector('.row-detail');
+  if (!detail.hidden) {
+    detail.hidden = true;
+    return;
+  }
+  const rows = state.items
+    .filter((i) => i.category === 'Bevétel' && monthOf(i.date) === month && normalizeNameForGrouping(i.counterparty || i.description || '') === key)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  detail.innerHTML = rows.map((r) => `<li>${r.date} - ${Math.abs(r.personalAmountHuf).toLocaleString('hu-HU')} HUF</li>`).join('');
+  detail.hidden = false;
 }
 
 // Adds a legend label (with that category's percentage of the pie's total
@@ -222,12 +227,14 @@ function renderJointCategoryPie() {
 // single month's bank statement.
 function renderJointIncome() {
   const month = jointMonthSelect.value;
-  jointIncomeTransactions.innerHTML = '';
   const incomeRows = summarizeJointIncome(state.jointRaw, month);
   jointContributors.innerHTML = `<ul>${incomeRows
     .map(
       ([label, total]) =>
-        `<li data-key="${normalizeNameForGrouping(label)}" data-label="${label}">${label || t('noDescription', lang)}: ${total.toLocaleString('hu-HU')} HUF</li>`,
+        `<li data-key="${normalizeNameForGrouping(label)}" data-label="${label}">` +
+        `<span class="row-summary">${label || t('noDescription', lang)}: ${total.toLocaleString('hu-HU')} HUF</span>` +
+        `<ul class="row-detail" hidden></ul>` +
+        `</li>`,
     )
     .join('')}</ul>`;
 }
@@ -238,16 +245,22 @@ function renderJointView() {
   renderJointIncome();
 }
 
-// Lists a clicked row's individual transactions (date, amount) from the
-// joint account's "what came in" list, scoped to the same month the
-// summary row was computed for - keyed by the same normalized grouping it
-// was summed by, since several raw labels (e.g. accent variants) can
-// collapse into one row.
-function renderJointIncomeTransactionList(key, label, month) {
-  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(jointIncomeLabel(tx)) === key);
-  jointIncomeTransactions.innerHTML = `<h3>${label || t('noDescription', lang)}</h3><ul>${rows
-    .map((r) => `<li>${r.date} - ${Math.abs(r.amount).toLocaleString('hu-HU')} HUF</li>`)
-    .join('')}</ul>`;
+// Toggles a clicked row's individual transactions - date order - open or
+// closed, right under that row, scoped to the same month the summary row
+// was computed for - keyed by the same normalized grouping it was summed
+// by, since several raw labels (e.g. accent variants) can collapse into
+// one row.
+function toggleJointIncomeDetail(row, key, month) {
+  const detail = row.querySelector('.row-detail');
+  if (!detail.hidden) {
+    detail.hidden = true;
+    return;
+  }
+  const rows = state.jointRaw
+    .filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(jointIncomeLabel(tx)) === key)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  detail.innerHTML = rows.map((r) => `<li>${r.date} - ${Math.abs(r.amount).toLocaleString('hu-HU')} HUF</li>`).join('');
+  detail.hidden = false;
 }
 
 function renderAll() {
@@ -307,13 +320,13 @@ jointMonthSelect.addEventListener('change', () => {
 incomeSourcesEl.addEventListener('click', (event) => {
   const row = event.target.closest('li[data-key]');
   if (!row) return;
-  renderIncomeSourceTransactionList(row.dataset.key, row.dataset.label, monthSelect.value);
+  toggleIncomeSourceDetail(row, row.dataset.key, monthSelect.value);
 });
 
 jointContributors.addEventListener('click', (event) => {
   const row = event.target.closest('li[data-key]');
   if (!row) return;
-  renderJointIncomeTransactionList(row.dataset.key, row.dataset.label, jointMonthSelect.value);
+  toggleJointIncomeDetail(row, row.dataset.key, jointMonthSelect.value);
 });
 
 viewSwitch.addEventListener('click', (event) => {

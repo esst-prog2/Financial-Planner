@@ -44,7 +44,7 @@ The system SHALL display, in the dedicated joint-account view, a month-by-month 
 - **THEN** the joint monthly trend chart updates to show only that category's full spending per month
 
 ### Requirement: Contributor breakdown
-The system SHALL show, in the dedicated joint-account view, every positive-amount joint-account transaction for the month selected from the joint-account view's month selector - not only ones matching the "Átutalás tőle: <name>" description pattern - grouped by the same counterparty extraction the rest of the app already uses (the named sender when extractable, otherwise falling back to the raw description, e.g. a card/Apple Pay top-up). This list SHALL include transactions that are excluded from the user's personal Bevétel total elsewhere in the app (e.g. a card top-up) - its purpose is to show everything that put money into the joint account, not to duplicate the Bevétel definition. Rows SHALL be grouped by a normalized name key (accent-stripped, case-insensitive, word-order-independent) so that the same real person or source is not split across multiple rows due to formatting differences between banks or entry order (e.g. "Tóth Tibor" vs "TIBOR TOTH"), while the displayed label uses the first-seen raw spelling. Clicking a row SHALL list the individual transactions making up that row's total, with their date and amount, mirroring the personal income-by-source list's click-to-list behavior.
+The system SHALL show, in the dedicated joint-account view, every positive-amount joint-account transaction for the month selected from the joint-account view's month selector - not only ones matching the "Átutalás tőle: <name>" description pattern - grouped by the same counterparty extraction the rest of the app already uses (the named sender when extractable, otherwise falling back to the raw description, e.g. a card/Apple Pay top-up). This list SHALL include transactions that are excluded from the user's personal Bevétel total elsewhere in the app (e.g. a card top-up) - its purpose is to show everything that put money into the joint account, not to duplicate the Bevétel definition. Rows SHALL be grouped by a normalized name key (accent-stripped, case-insensitive, word-order-independent) so that the same real person or source is not split across multiple rows due to formatting differences between banks or entry order (e.g. "Tóth Tibor" vs "TIBOR TOTH"), while the displayed label uses the first-seen raw spelling. Clicking a row SHALL toggle a list of the individual transactions making up that row's total open or closed, displayed directly beneath that row (not in a separate area), sorted chronologically by date, each with its date and amount, mirroring the personal income-by-source list's click-to-list behavior.
 
 #### Scenario: two contributors
 - **WHEN** the joint account has incoming transfers described as "Átutalás tőle: <name>" from two different names
@@ -66,9 +66,13 @@ The system SHALL show, in the dedicated joint-account view, every positive-amoun
 - **WHEN** the same real person's contributions appear under two name variants the general accent/case/word-order grouping treats as different (e.g. with vs. without a middle name), and a name alias mapping that variant to a canonical name is configured
 - **THEN** the income list shows a single combined row under the canonical name
 
-#### Scenario: clicking a row lists its individual transactions
+#### Scenario: clicking a row lists its individual transactions, in date order, directly underneath it
 - **WHEN** the user clicks a row in the joint-account view's income list
-- **THEN** the view lists that row's individual transactions for the selected month, each with its date and amount
+- **THEN** that row's individual transactions for the selected month appear directly beneath it, sorted chronologically by date, each with its date and amount
+
+#### Scenario: clicking an already-open row closes it
+- **WHEN** the user clicks a row whose individual-transaction list is currently shown
+- **THEN** that list is hidden again
 
 #### Scenario: selecting a different month scopes the income list
 - **WHEN** the same contributor sent money into the joint account in two different months and the user picks one of those months from the joint-account view's month selector
