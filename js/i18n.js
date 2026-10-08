@@ -20,7 +20,7 @@ export const STRINGS = {
   allCategoriesOption: { hu: 'Összes', en: 'All' },
   jointPieHeading: { hu: 'Közös számla - teljes kiadás kategóriánként', en: 'Joint account - full spending by category' },
   jointTrendHeading: { hu: 'Közös számla - havi trend', en: 'Joint account - monthly trend' },
-  contributorsHeading: { hu: 'Befizetők', en: 'Contributors' },
+  contributorsHeading: { hu: 'Közös számlára érkezett', en: 'Money into the joint account' },
   languageLabel: { hu: 'Nyelv', en: 'Language' },
   noDescription: { hu: '(nincs leírás)', en: '(no description)' },
 };

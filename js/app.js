@@ -1,10 +1,11 @@
 import { buildLineItems, monthOf } from './pipeline.js';
 import { parseRevolutSheet } from './parseRevolut.js';
 import { resolveSheetName } from './util.js';
-import { summarizeContributors } from './jointAccount.js';
+import { summarizeJointIncome } from './jointAccount.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from './categorize.js';
 import { categoryTotals, pieEligibleRows, monthlySummary, monthlyTrend, incomeBySource } from './aggregate.js';
 import { categoryColor } from './categoryColors.js';
+import { normalizeNameForGrouping } from './util.js';
 import { DEFAULT_LANGUAGE, t, categoryLabel, summaryText as formatSummaryText, missingSheetMessage, genericErrorMessage } from './i18n.js';
 
 const SHEET_NAMES = ['otp', 'rev-eur', 'rev-hu', 'rev-joint'];
@@ -25,6 +26,8 @@ const jointMonthSelect = document.getElementById('joint-month-select');
 const languageSelect = document.getElementById('language-select');
 const incomeTotalEl = document.getElementById('income-total');
 const incomeSourcesEl = document.getElementById('income-sources');
+const incomeSourceTransactions = document.getElementById('income-source-transactions');
+const jointIncomeTransactions = document.getElementById('joint-income-transactions');
 
 let state = { items: [], jointRaw: [] };
 let lang = DEFAULT_LANGUAGE;
@@ -104,9 +107,26 @@ function renderIncomeBySource() {
   const rows = incomeBySource(state.items, month);
   const total = rows.reduce((sum, [, amount]) => sum + amount, 0);
   incomeTotalEl.textContent = `${total.toLocaleString('hu-HU')} HUF`;
+  incomeSourceTransactions.innerHTML = '';
   incomeSourcesEl.innerHTML = rows
-    .map(([source, amount]) => `<li>${source || t('noDescription', lang)}: ${amount.toLocaleString('hu-HU')} HUF</li>`)
+    .map(
+      ([source, amount]) =>
+        `<li data-key="${normalizeNameForGrouping(source)}" data-label="${source}">${source || t('noDescription', lang)}: ${amount.toLocaleString('hu-HU')} HUF</li>`,
+    )
     .join('');
+}
+
+// Lists a clicked income source's individual Bevétel transactions for the
+// selected month (date, amount) - mirrors renderCategoryTransactionList's
+// click-to-list behavior, but keyed by the normalized source name rather
+// than category, since several raw labels can collapse into one row.
+function renderIncomeSourceTransactionList(key, label, month) {
+  const rows = state.items.filter(
+    (i) => i.category === 'Bevétel' && monthOf(i.date) === month && normalizeNameForGrouping(i.counterparty || i.description || '') === key,
+  );
+  incomeSourceTransactions.innerHTML = `<h3>${label || t('noDescription', lang)}</h3><ul>${rows
+    .map((r) => `<li>${r.date} - ${Math.abs(r.personalAmountHuf).toLocaleString('hu-HU')} HUF</li>`)
+    .join('')}</ul>`;
 }
 
 // Adds a legend label (with that category's percentage of the pie's total
@@ -200,9 +220,25 @@ function renderJointView() {
   renderJointCategoryPie();
   renderJointMonthlyBar();
 
-  const contributorTotals = summarizeContributors(state.jointRaw);
-  jointContributors.innerHTML = `<ul>${[...contributorTotals.entries()]
-    .map(([name, total]) => `<li>${name}: ${total.toLocaleString('hu-HU')} HUF</li>`)
+  jointIncomeTransactions.innerHTML = '';
+  const incomeRows = summarizeJointIncome(state.jointRaw);
+  jointContributors.innerHTML = `<ul>${incomeRows
+    .map(
+      ([label, total]) =>
+        `<li data-key="${normalizeNameForGrouping(label)}" data-label="${label}">${label || t('noDescription', lang)}: ${total.toLocaleString('hu-HU')} HUF</li>`,
+    )
+    .join('')}</ul>`;
+}
+
+// Lists a clicked row's individual transactions (date, amount) from the
+// joint account's "what came in" list - all-time, like the list itself
+// (not month-scoped), keyed by the same normalized grouping it was summed
+// by, since several raw labels (e.g. accent variants) can collapse into one
+// row.
+function renderJointIncomeTransactionList(key, label) {
+  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && normalizeNameForGrouping(tx.counterparty || tx.description || '') === key);
+  jointIncomeTransactions.innerHTML = `<h3>${label || t('noDescription', lang)}</h3><ul>${rows
+    .map((r) => `<li>${r.date} - ${Math.abs(r.amount).toLocaleString('hu-HU')} HUF</li>`)
     .join('')}</ul>`;
 }
 
@@ -256,6 +292,18 @@ monthSelect.addEventListener('change', () => {
 categoryFilter.addEventListener('change', renderMonthlyBar);
 jointCategoryFilter.addEventListener('change', renderJointMonthlyBar);
 jointMonthSelect.addEventListener('change', renderJointCategoryPie);
+
+incomeSourcesEl.addEventListener('click', (event) => {
+  const row = event.target.closest('li[data-key]');
+  if (!row) return;
+  renderIncomeSourceTransactionList(row.dataset.key, row.dataset.label, monthSelect.value);
+});
+
+jointContributors.addEventListener('click', (event) => {
+  const row = event.target.closest('li[data-key]');
+  if (!row) return;
+  renderJointIncomeTransactionList(row.dataset.key, row.dataset.label);
+});
 
 viewSwitch.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-view]');

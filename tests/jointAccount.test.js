@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractContributorName, isJointContribution, splitJointAmount, summarizeContributors } from '../js/jointAccount.js';
+import { extractContributorName, isJointContribution, splitJointAmount, summarizeContributors, summarizeJointIncome } from '../js/jointAccount.js';
 
 test('50% split of a joint expense', () => {
   assert.equal(splitJointAmount(-12000), -6000);
@@ -34,4 +34,26 @@ test('the same contributor combines into one row even with accent/case/word-orde
   const totals = summarizeContributors(transactions);
   assert.equal(totals.size, 1);
   assert.equal([...totals.values()][0], 25000);
+});
+
+test('summarizeJointIncome includes a named contributor and a non-"tőle" top-up, not just named transfers', () => {
+  const transactions = [
+    { source: 'revolut-joint', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 20000 },
+    { source: 'revolut-joint', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', counterparty: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 15000 },
+    { source: 'revolut-joint', description: 'Lidl', counterparty: 'Lidl', amount: -3000 },
+  ];
+  const rows = summarizeJointIncome(transactions);
+  assert.deepEqual(rows, [
+    ['T TIBI', 20000],
+    ['Apple Pay összegű feltöltés a(z) *6052 eszközödön', 15000],
+  ]);
+});
+
+test('summarizeJointIncome groups the same contributor written differently into one row', () => {
+  const transactions = [
+    { source: 'revolut-joint', description: 'Átutalás tőle: Fikció Hanna', counterparty: 'Fikció Hanna', amount: 20000 },
+    { source: 'revolut-joint', description: 'Átutalás tőle: hanna fikcio', counterparty: 'hanna fikcio', amount: 5000 },
+  ];
+  const rows = summarizeJointIncome(transactions);
+  assert.deepEqual(rows, [['Fikció Hanna', 25000]]);
 });

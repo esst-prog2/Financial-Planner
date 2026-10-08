@@ -32,3 +32,25 @@ export function summarizeContributors(transactions) {
   for (const { label, total } of grouped.values()) totals.set(label, total);
   return totals;
 }
+
+// Everything that put money into the joint account, not just transfers
+// matching the "Átutalás tőle:" pattern - e.g. a card/Apple Pay top-up is
+// real money arriving in the account too, even though it's excluded from
+// the user's personal Bevétel elsewhere (see isCardTopUpMovement in
+// categorize.js). Grouped by the already-extracted `counterparty` field
+// (revolutCounterparty() in parseRevolut.js: the named sender when
+// extractable, otherwise the raw description), normalized the same way as
+// summarizeContributors so the same real source isn't split across rows.
+// Returns [label, total] pairs sorted largest first, like incomeBySource.
+export function summarizeJointIncome(transactions) {
+  const grouped = new Map(); // normalized key -> { label, total }
+  for (const t of transactions) {
+    if (t.amount <= 0) continue;
+    const label = t.counterparty || t.description || '';
+    const key = normalizeNameForGrouping(label);
+    const existing = grouped.get(key);
+    if (existing) existing.total += t.amount;
+    else grouped.set(key, { label, total: t.amount });
+  }
+  return [...grouped.values()].map(({ label, total }) => [label, total]).sort(([, a], [, b]) => b - a);
+}
