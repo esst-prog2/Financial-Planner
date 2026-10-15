@@ -46,17 +46,26 @@
       <ul id="summary-text"></ul>
     </section>
 
-    <section class="card">
-      <h2 data-i18n="incomeHeading">Bevétel forrásonként</h2>
-      <p id="income-total" class="hero-number"></p>
-      <ul id="income-sources"></ul>
-    </section>
+    <div id="income-pie-split">
+      <div id="income-pie-left">
+        <section class="card">
+          <h2 data-i18n="incomeHeading">Bevétel forrásonként</h2>
+          <p id="income-total" class="hero-number"></p>
+          <ul id="income-sources"></ul>
+        </section>
 
-    <section class="card">
-      <h2 data-i18n="categoryPieHeading">Kategória szerinti bontás</h2>
-      <canvas id="category-pie"></canvas>
-      <div id="category-transactions"></div>
-    </section>
+        <section class="card">
+          <h2 data-i18n="categoryPieHeading">Kategória szerinti bontás</h2>
+          <canvas id="category-pie"></canvas>
+          <div id="category-transactions"></div>
+        </section>
+      </div>
+
+      <aside id="deduction-history" class="card">
+        <h2 data-i18n="deductionHistoryHeading">Levonások</h2>
+        <div id="deduction-history-rows"></div>
+      </aside>
+    </div>
 
     <section class="card">
       <h2 data-i18n="monthlyTrendHeading">Havi trend</h2>
@@ -90,6 +99,22 @@
     </section>
   </section>
 </main>
+
+<div id="delete-bar" hidden>
+  <button type="button" id="clear-selection" data-i18n="clearSelectionLabel">Kijelölések visszavonása</button>
+  <button type="button" id="allocate-selected" hidden data-i18n="allocateButtonLabel">Levonás...</button>
+  <button type="button" id="delete-selected"><span data-i18n="deleteButtonLabel">Törlés</span> (<span id="delete-count">0</span>)</button>
+</div>
+
+<div id="allocation-panel" class="card" hidden>
+  <h3 data-i18n="allocationHeading">A bevétel felosztása a kijelölt kiadások között</h3>
+  <div id="allocation-rows"></div>
+  <p id="allocation-remaining"></p>
+  <div id="allocation-actions">
+    <button type="button" id="allocation-apply" data-i18n="allocationApplyLabel">Alkalmaz</button>
+    <button type="button" id="allocation-cancel" data-i18n="allocationCancelLabel">Mégse</button>
+  </div>
+</div>
 
 <p id="error-message" role="alert" hidden></p>
 

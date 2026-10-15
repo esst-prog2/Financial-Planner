@@ -22,7 +22,7 @@ export const SPENDING_CATEGORY_KEYWORDS = [
     keywords: [
       'bershka', 'stradivarius', 'zara', 'h&m', 'ruházat', 'tienda', 'decathlon', 'reserved',
       'istyle', 'pirex', 'mango', 'arena', 'calzedonia', 'lush', "women's secret", 'primark',
-      'tezenis', 'new garden', 'tchibo', 'sportshop',
+      'tezenis', 'new garden', 'tchibo', 'sportshop', 'mountex',
     ],
   },
   {
@@ -66,9 +66,15 @@ export const SPENDING_CATEGORY_KEYWORDS = [
   },
   {
     category: 'Számlák/előfizetés',
-    // 'simplep*one' is the full payment reference, not bare "one" - a bare
-    // "one" would false-positive-match all over the place.
-    keywords: ['mvm', 'apple.com', 'netflix', 'spotify', 'anthropic', 'telekom', 'vodafone', 'yettel', 'lakbér', 'simplep*one'],
+    // 'simplep*one' is the full SumUp-prefixed payment reference. ' one '
+    // (padded with spaces on both sides) is a second, separate entry for
+    // when the description is literally just "One" with no prefix - safe
+    // specifically because categorizeTransaction() already wraps the text
+    // it searches in a leading/trailing space before matching, so this only
+    // matches "one" as its own whole word (e.g. not the "one" inside
+    // "vodafone", which has no space before it) - an un-padded bare "one"
+    // would match as a substring anywhere and false-positive all over.
+    keywords: ['mvm', 'apple.com', 'netflix', 'spotify', 'anthropic', 'telekom', 'vodafone', 'yettel', 'lakbér', 'simplep*one', ' one '],
   },
   {
     category: 'Megtakarítás',

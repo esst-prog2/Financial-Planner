@@ -17,6 +17,7 @@
 export const COUNTERPARTY_CATEGORY_RULES_BY_ID = [
   { ids: ['person-a', 'person-b', 'person-c'], category: 'Szolgáltatások' },
   { ids: ['person-d', 'person-e'], category: 'Számlák/előfizetés' },
+  { ids: ['person-f'], category: 'Szórakozás' },
 ];
 
 // Pure: expands { ids, category } rules into { names, category } rules
