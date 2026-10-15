@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { resolveNameAlias } from '../js/nameAliases.js';
 
 test('resolveNameAlias returns the canonical name for a configured alias', () => {
-  const aliases = { 'REKA ZSUZSANNA KARACSONY': 'Karácsony Réka' };
-  assert.equal(resolveNameAlias('REKA ZSUZSANNA KARACSONY', aliases), 'Karácsony Réka');
+  const aliases = { 'HANNA ESZTER FIKCIO': 'Fikció Hanna' };
+  assert.equal(resolveNameAlias('HANNA ESZTER FIKCIO', aliases), 'Fikció Hanna');
 });
 
 test('resolveNameAlias matches accent/case-insensitively', () => {
