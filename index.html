@@ -40,63 +40,69 @@
 </nav>
 
 <main id="app" hidden>
-  <section id="personal-view">
-    <section id="summary" class="card">
-      <h2 data-i18n="summaryHeading">Havi összesítő</h2>
-      <ul id="summary-text"></ul>
-    </section>
+  <section id="personal-view" class="dashboard-layout">
+    <aside id="category-filter-sidebar" class="card category-filter-sidebar">
+      <h2 data-i18n="categoryFilterLabel">Kategória szűrő:</h2>
+      <button type="button" id="category-filter-select-all" data-i18n="selectAllCategoriesLabel">Mind kijelölése</button>
+      <ul id="category-filter-list"></ul>
+    </aside>
 
-    <div id="income-pie-split">
-      <div id="income-pie-left">
-        <section class="card">
+    <div class="dashboard-content">
+      <section id="summary" class="card">
+        <h2 data-i18n="summaryHeading">Havi összesítő</h2>
+        <ul id="summary-text"></ul>
+      </section>
+
+      <div id="income-deduction-split">
+        <section id="income-sources-section" class="card">
           <h2 data-i18n="incomeHeading">Bevétel forrásonként</h2>
           <p id="income-total" class="hero-number"></p>
           <ul id="income-sources"></ul>
         </section>
 
-        <section class="card">
-          <h2 data-i18n="categoryPieHeading">Kategória szerinti bontás</h2>
-          <canvas id="category-pie"></canvas>
-          <div id="category-transactions"></div>
-        </section>
+        <aside id="deduction-history" class="card">
+          <h2 data-i18n="deductionHistoryHeading">Levonások</h2>
+          <div id="deduction-history-rows"></div>
+        </aside>
       </div>
 
-      <aside id="deduction-history" class="card">
-        <h2 data-i18n="deductionHistoryHeading">Levonások</h2>
-        <div id="deduction-history-rows"></div>
-      </aside>
-    </div>
+      <section class="card">
+        <h2 data-i18n="categoryPieHeading">Kategória szerinti bontás</h2>
+        <canvas id="category-pie"></canvas>
+        <div id="category-transactions"></div>
+      </section>
 
-    <section class="card">
-      <h2 data-i18n="monthlyTrendHeading">Havi trend</h2>
-      <label for="category-filter" data-i18n="categoryFilterLabel">Kategória szűrő:</label>
-      <select id="category-filter">
-        <option value="" data-i18n="allCategoriesOption">Összes</option>
-      </select>
-      <canvas id="monthly-bar"></canvas>
-    </section>
+      <section class="card">
+        <h2 data-i18n="monthlyTrendHeading">Havi trend</h2>
+        <canvas id="monthly-bar"></canvas>
+      </section>
+    </div>
   </section>
 
-  <section id="joint-view" hidden>
-    <section class="card">
-      <h2 data-i18n="jointPieHeading">Közös számla - teljes kiadás kategóriánként</h2>
-      <canvas id="joint-category-pie"></canvas>
-      <div id="joint-category-transactions"></div>
-    </section>
+  <section id="joint-view" class="dashboard-layout" hidden>
+    <aside id="joint-category-filter-sidebar" class="card category-filter-sidebar">
+      <h2 data-i18n="categoryFilterLabel">Kategória szűrő:</h2>
+      <button type="button" id="joint-category-filter-select-all" data-i18n="selectAllCategoriesLabel">Mind kijelölése</button>
+      <ul id="joint-category-filter-list"></ul>
+    </aside>
 
-    <section class="card">
-      <h2 data-i18n="jointTrendHeading">Közös számla - havi trend</h2>
-      <label for="joint-category-filter" data-i18n="categoryFilterLabel">Kategória szűrő:</label>
-      <select id="joint-category-filter">
-        <option value="" data-i18n="allCategoriesOption">Összes</option>
-      </select>
-      <canvas id="joint-monthly-bar"></canvas>
-    </section>
+    <div class="dashboard-content">
+      <section id="joint-contributors-section" class="card">
+        <h2 data-i18n="contributorsHeading">Közös számlára érkezett</h2>
+        <div id="joint-contributors"></div>
+      </section>
 
-    <section class="card">
-      <h2 data-i18n="contributorsHeading">Közös számlára érkezett</h2>
-      <div id="joint-contributors"></div>
-    </section>
+      <section class="card">
+        <h2 data-i18n="jointPieHeading">Közös számla - teljes kiadás kategóriánként</h2>
+        <canvas id="joint-category-pie"></canvas>
+        <div id="joint-category-transactions"></div>
+      </section>
+
+      <section class="card">
+        <h2 data-i18n="jointTrendHeading">Közös számla - havi trend</h2>
+        <canvas id="joint-monthly-bar"></canvas>
+      </section>
+    </div>
   </section>
 </main>
 

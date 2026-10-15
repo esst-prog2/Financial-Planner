@@ -58,6 +58,19 @@ test('categoryTotals with jointOnly uses full amountHuf, scoped to revolut-joint
   assert.equal(totals.get('Élelmiszer'), -6000);
 });
 
+test('categoryTotals with a categories Set excludes categories not in it', () => {
+  const items = [item({ category: 'Élelmiszer', personalAmountHuf: -3000 }), item({ category: 'Sport', personalAmountHuf: -2000 })];
+  const totals = categoryTotals(items, { month: '2026-09', categories: new Set(['Élelmiszer']) });
+  assert.equal(totals.get('Élelmiszer'), -3000);
+  assert.equal(totals.has('Sport'), false);
+});
+
+test('categoryTotals with an empty categories Set excludes everything', () => {
+  const items = [item({ personalAmountHuf: -3000 })];
+  const totals = categoryTotals(items, { month: '2026-09', categories: new Set() });
+  assert.equal(totals.size, 0);
+});
+
 test('pieEligibleRows excludes non-negative categories and sorts descending', () => {
   const totals = new Map([
     ['Élelmiszer', -5000],
@@ -94,6 +107,21 @@ test('monthlyTrend nets per month rather than summing absolute values', () => {
     ['2026-08', 4000],
     ['2026-09', 5000],
   ]);
+});
+
+test('monthlyTrend with a categories Set sums only the checked categories', () => {
+  const items = [
+    item({ category: 'Élelmiszer', date: '2026-09-05', personalAmountHuf: -4000 }),
+    item({ category: 'Sport', date: '2026-09-05', personalAmountHuf: -1000 }),
+  ];
+  const trend = monthlyTrend(items, new Set(['Élelmiszer']));
+  assert.deepEqual(trend, [['2026-09', 4000]]);
+});
+
+test('monthlyTrend with an empty categories Set returns no months', () => {
+  const items = [item({ date: '2026-09-05', personalAmountHuf: -4000 })];
+  const trend = monthlyTrend(items, new Set());
+  assert.deepEqual(trend, []);
 });
 
 test('incomeBySource groups repeated income from the same counterparty and sorts descending', () => {

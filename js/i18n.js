@@ -21,6 +21,7 @@ export const STRINGS = {
   monthlyTrendHeading: { hu: 'Havi trend', en: 'Monthly trend' },
   categoryFilterLabel: { hu: 'Kategória szűrő:', en: 'Category filter:' },
   allCategoriesOption: { hu: 'Összes', en: 'All' },
+  selectAllCategoriesLabel: { hu: 'Mind kijelölése', en: 'Select all' },
   jointPieHeading: { hu: 'Közös számla - teljes kiadás kategóriánként', en: 'Joint account - full spending by category' },
   jointTrendHeading: { hu: 'Közös számla - havi trend', en: 'Joint account - monthly trend' },
   contributorsHeading: { hu: 'Közös számlára érkezett', en: 'Money into the joint account' },

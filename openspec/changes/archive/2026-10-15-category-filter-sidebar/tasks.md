@@ -1,0 +1,31 @@
+## 1. Generalize the aggregate functions to a category Set
+
+- [x] 1.1 Change `monthlyTrend(items, category, opts)` in js/aggregate.js to `monthlyTrend(items, categories, opts)`, filtering `if (categories && !categories.has(item.category)) continue;` instead of the current single-category comparison - verify the existing `monthlyTrend(items, null)` test still passes unchanged.
+- [x] 1.2 Add a `categories` option to `categoryTotals(items, { month, jointOnly, categories })`, filtering the same way, defaulting to `null` (no filtering) - verify existing `categoryTotals` tests pass unchanged.
+- [x] 1.3 Add new tests in tests/aggregate.test.js covering both functions with a `Set` that excludes at least one category present in the input, and with an empty Set (expect zero results, not an error).
+
+## 2. Replace the dropdowns with checkbox-list sidebars in app.js
+
+- [x] 2.1 Add `let selectedCategories = new Set(ALL_CATEGORIES)` and `let jointSelectedCategories = new Set(ALL_CATEGORIES)` as module-level state in js/app.js, independent of each other.
+- [x] 2.2 Replace `renderCategoryFilterOptions()`'s dropdown-building logic with a checkbox-list builder (one call per view) that renders one checkbox per `ALL_CATEGORIES` entry with its translated label, checked according to the relevant Set, plus a "select all" button - verify by rendering and checking every box starts checked.
+- [x] 2.3 Wire a delegated change listener on each sidebar that adds/removes the toggled category from the relevant Set and re-renders that view's pie chart and bar chart - verify unchecking a category removes its pie slice and reduces the bar chart's totals.
+- [x] 2.4 Wire each sidebar's "select all" button to reset its Set to `new Set(ALL_CATEGORIES)`, re-check every box, and re-render both charts - verify after unchecking several boxes and clicking it.
+- [x] 2.5 Update `renderCategoryPie()`/`renderJointCategoryPie()` to filter `pieEligibleRows(categoryTotals(...))`'s output by the relevant Set (or pass `categories` directly into `categoryTotals`) - verify an unchecked category's slice disappears and the remaining percentages recompute against the smaller total.
+- [x] 2.6 Update `renderMonthlyBar()`/`renderJointMonthlyBar()` to pass the relevant Set into `monthlyTrend()` instead of reading `categoryFilter.value`/`jointCategoryFilter.value` - verify the bar chart's totals match the sum of only checked categories.
+
+## 3. Markup and layout
+
+- [x] 3.1 In index.html, remove `<select id="category-filter">` and `<select id="joint-category-filter">`, and add a checkbox-list sidebar element for each view (`#category-filter-sidebar`, `#joint-category-filter-sidebar`) with a "select all" button, per design.md's layout.
+- [x] 3.2 Restructure the personal view per design.md: move the income-sources card out into its own full-width `#income-sources-section` directly below Summary; renamed `#income-pie-split`/`#income-pie-left` to `#category-filter-split`/the shared `.filter-chart-row` class (no longer about income, so the old names were no longer accurate); the filter sidebar now sits beside the category-pie card inside that row, with `#deduction-history` unchanged as the split's right column. The monthly-trend card's position does not change. Verified index.html renders without a console error and every element id referenced by app.js exists.
+- [x] 3.3 Restructure the joint view to mirror the personal view's pattern (same `.filter-chart-row`/`.category-filter-sidebar` classes, not a one-off): moved `#joint-contributors` into its own full-width `#joint-contributors-section` ahead of the filter+pie row (it plays income-sources' role), then the filter sidebar sits beside `#joint-category-pie` in the same shared row class, with no right-hand column (no deduction-history equivalent exists yet for joint - planned for a follow-up change). `#joint-monthly-bar`'s card position does not change.
+- [x] 3.4 Added CSS for `.filter-chart-row`/`.category-filter-sidebar` (shared by both views, sticky sidebar matching the existing `#deduction-history` pattern) in css/style.css, including a mobile fallback to a single column at the existing breakpoint. The income-sources/joint-contributors full-width sections need no new CSS - they're plain `.card` sections, same as Summary.
+- [x] 3.5 Added the new "select all" i18n string to js/i18n.js (both hu/en) - picked up via `data-i18n` on the new button through the existing `applyStaticTranslations()`.
+- [x] 3.6 Revised per user feedback: "a bevételek mellett legyen a levonások és új sorban legyen bal oldalt a filter és jobb oldalt a pie chart" - re-paired income-sources with deduction-history (`#income-deduction-split`, replacing the earlier income-sources-alone/filter-beside-pie arrangement from 3.2), with the filter+pie-chart row now standalone instead of nested in that split.
+- [x] 3.7 Built a two-artboard mockup (current narrow layout vs. a wide page with a full-height left sidebar) as an Artifact, at the user's request ("nézzük meg hogy nézne ki") after she asked whether more of the screen could be used - the user picked the wide version over keeping the sidebar paired with just the pie chart.
+- [x] 3.8 Implemented the approved mockup: `#personal-view`/`#joint-view` are now the flex layout themselves (`.dashboard-layout`), each with its filter sidebar (`.category-filter-sidebar`, sticky, full height) beside a `.dashboard-content` column holding every other card for that view in their existing order. Removed the now-unused `.filter-chart-row` class and `#income-pie-split`/`#income-pie-left` naming entirely. Widened the page's `max-width` from 960px to 1600px in css/style.css to give the sidebar room, per the approved mockup.
+
+## 4. Verification
+
+- [x] 4.1 Run `npm test` and confirm all tests pass, including the new aggregate.js coverage from task 1.3. 191/191 pass.
+- [x] 4.2 Manually verified end to end in the browser by the user (no automated browser tool available in this environment): confirmed the final full-height-sidebar layout ("az elrendezés jó lesz") after reviewing it live against the dev server, following two earlier rounds of layout feedback and a mockup comparison.
+- [x] 4.3 Append a dated PLANNING_LOG.md entry describing the change and who decided it, per this project's standing convention.

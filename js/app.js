@@ -19,9 +19,11 @@ const viewSwitch = document.getElementById('view-switch');
 const monthBar = document.getElementById('month-bar');
 const monthSelect = document.getElementById('month-select');
 const summaryTextEl = document.getElementById('summary-text');
-const categoryFilter = document.getElementById('category-filter');
+const categoryFilterList = document.getElementById('category-filter-list');
+const categoryFilterSelectAll = document.getElementById('category-filter-select-all');
 const categoryTransactions = document.getElementById('category-transactions');
-const jointCategoryFilter = document.getElementById('joint-category-filter');
+const jointCategoryFilterList = document.getElementById('joint-category-filter-list');
+const jointCategoryFilterSelectAll = document.getElementById('joint-category-filter-select-all');
 const jointContributors = document.getElementById('joint-contributors');
 const jointCategoryTransactions = document.getElementById('joint-category-transactions');
 const jointMonthSelect = document.getElementById('joint-month-select');
@@ -66,6 +68,13 @@ let selectedForDeletion = new Set();
 // instead of querying checked checkboxes, which only exist for the
 // currently-displayed month.
 let selectedKinds = new Map();
+// Which categories the category filter sidebar currently has checked - one
+// Set per view, independent of each other, both starting with every
+// category checked (the "no filter" default). Drives both that view's pie
+// chart and its monthly-trend bar chart; see categoryTotals/monthlyTrend
+// in aggregate.js for how a category not in the Set is excluded.
+let selectedCategories = new Set(ALL_CATEGORIES);
+let jointSelectedCategories = new Set(ALL_CATEGORIES);
 // Every id ever deleted, persisted via preferences.js (keyed by the stable
 // transaction id from assignTransactionIds) so a later upload - even of a
 // different export covering the same date range - doesn't bring a deleted
@@ -122,19 +131,22 @@ function applyStaticTranslations() {
   document.documentElement.lang = lang;
 }
 
-// Rebuilds both category-filter dropdowns with labels in the current
-// language, while keeping their canonical (Hungarian) values - filtering
-// logic never depends on the display language.
-function renderCategoryFilterOptions() {
-  const previousPersonal = categoryFilter.value;
-  const previousJoint = jointCategoryFilter.value;
-  const optionsHtml = `<option value="">${t('allCategoriesOption', lang)}</option>${ALL_CATEGORIES.map(
-    (c) => `<option value="${c}">${categoryLabel(c, lang)}</option>`,
-  ).join('')}`;
-  categoryFilter.innerHTML = optionsHtml;
-  jointCategoryFilter.innerHTML = optionsHtml;
-  categoryFilter.value = previousPersonal;
-  jointCategoryFilter.value = previousJoint;
+// Builds the checkbox-list markup for one filter sidebar, checked state
+// read from `selected` (the Set itself is the source of truth, not any
+// previous DOM state - a full rebuild never loses anything).
+function categoryFilterListHtml(selected) {
+  return ALL_CATEGORIES.map(
+    (c) => `<li><label><input type="checkbox" class="category-filter-check" value="${c}"${selected.has(c) ? ' checked' : ''}> ${categoryLabel(c, lang)}</label></li>`,
+  ).join('');
+}
+
+// Rebuilds both category-filter sidebars with labels in the current
+// language, while keeping their canonical (Hungarian) values as each
+// checkbox's `value` - filtering logic never depends on the display
+// language, only the visible label text does.
+function renderCategoryFilterCheckboxes() {
+  categoryFilterList.innerHTML = categoryFilterListHtml(selectedCategories);
+  jointCategoryFilterList.innerHTML = categoryFilterListHtml(jointSelectedCategories);
 }
 
 // Renders the available months as a row of tab buttons instead of a
@@ -337,7 +349,7 @@ function withPercentages(rows) {
 
 function renderCategoryPie() {
   const month = monthSelect.value;
-  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month })));
+  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month, categories: selectedCategories })));
 
   if (pieChart) pieChart.destroy();
   pieChart = new window.Chart(document.getElementById('category-pie'), {
@@ -357,30 +369,38 @@ function renderCategoryTransactionList(category, month) {
   categoryTransactions.innerHTML = expenseTableHtml(category, rows, 'personalAmountHuf');
 }
 
+// The bar stays a single series (the sum of whatever's currently checked),
+// not one series per category - see design.md's Non-Goals. Its label
+// names the one checked category when there's exactly one (mirroring the
+// old single-category dropdown's label), or the generic "all" label
+// otherwise - for 0 or 2+ categories there's no single name to show.
+function trendDatasetLabel(categories) {
+  if (categories.size === 1) return categoryLabel([...categories][0], lang);
+  return t('allCategoriesOption', lang);
+}
+
 function renderMonthlyBar() {
-  const category = categoryFilter.value;
-  const trend = monthlyTrend(state.items, category);
+  const trend = monthlyTrend(state.items, selectedCategories);
 
   if (barChart) barChart.destroy();
   barChart = new window.Chart(document.getElementById('monthly-bar'), {
     type: 'bar',
     data: {
       labels: trend.map(([month]) => month),
-      datasets: [{ label: category ? categoryLabel(category, lang) : t('allCategoriesOption', lang), data: trend.map(([, total]) => total) }],
+      datasets: [{ label: trendDatasetLabel(selectedCategories), data: trend.map(([, total]) => total) }],
     },
   });
 }
 
 function renderJointMonthlyBar() {
-  const category = jointCategoryFilter.value;
-  const trend = monthlyTrend(state.items, category, { jointOnly: true });
+  const trend = monthlyTrend(state.items, jointSelectedCategories, { jointOnly: true });
 
   if (jointBarChart) jointBarChart.destroy();
   jointBarChart = new window.Chart(document.getElementById('joint-monthly-bar'), {
     type: 'bar',
     data: {
       labels: trend.map(([month]) => month),
-      datasets: [{ label: category ? categoryLabel(category, lang) : t('allCategoriesOption', lang), data: trend.map(([, total]) => total) }],
+      datasets: [{ label: trendDatasetLabel(jointSelectedCategories), data: trend.map(([, total]) => total) }],
     },
   });
 }
@@ -392,7 +412,7 @@ function renderJointCategoryTransactionList(category, month) {
 
 function renderJointCategoryPie() {
   const month = jointMonthSelect.value;
-  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month, jointOnly: true })));
+  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month, jointOnly: true, categories: jointSelectedCategories })));
 
   if (jointPieChart) jointPieChart.destroy();
   jointPieChart = new window.Chart(document.getElementById('joint-category-pie'), {
@@ -614,7 +634,7 @@ fileInput.addEventListener('change', async (event) => {
       selectMonth(monthSelect, prefs.lastMonth);
       selectMonth(jointMonthSelect, prefs.lastMonth);
     }
-    renderCategoryFilterOptions();
+    renderCategoryFilterCheckboxes();
     app.hidden = false;
     monthBar.hidden = false;
     viewSwitch.hidden = false;
@@ -649,8 +669,43 @@ monthSelect.addEventListener('change', () => {
   categoryTransactions.innerHTML = '';
   savePreferences({ lastMonth: monthSelect.value });
 });
-categoryFilter.addEventListener('change', renderMonthlyBar);
-jointCategoryFilter.addEventListener('change', renderJointMonthlyBar);
+// Delegated, same pattern as the .tx-select listener above - the checkbox
+// list is rebuilt via innerHTML on every renderCategoryFilterCheckboxes()
+// call, so a listener on an individual checkbox wouldn't survive that.
+// Toggling a category affects both charts in the same view at once (the
+// pie and the bar chart share one filter), unlike the old dropdown, which
+// only drove the bar chart.
+categoryFilterList.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('.category-filter-check');
+  if (!checkbox) return;
+  if (checkbox.checked) selectedCategories.add(checkbox.value);
+  else selectedCategories.delete(checkbox.value);
+  renderCategoryPie();
+  renderMonthlyBar();
+});
+
+jointCategoryFilterList.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('.category-filter-check');
+  if (!checkbox) return;
+  if (checkbox.checked) jointSelectedCategories.add(checkbox.value);
+  else jointSelectedCategories.delete(checkbox.value);
+  renderJointCategoryPie();
+  renderJointMonthlyBar();
+});
+
+categoryFilterSelectAll.addEventListener('click', () => {
+  selectedCategories = new Set(ALL_CATEGORIES);
+  renderCategoryFilterCheckboxes();
+  renderCategoryPie();
+  renderMonthlyBar();
+});
+
+jointCategoryFilterSelectAll.addEventListener('click', () => {
+  jointSelectedCategories = new Set(ALL_CATEGORIES);
+  renderCategoryFilterCheckboxes();
+  renderJointCategoryPie();
+  renderJointMonthlyBar();
+});
 jointMonthSelect.addEventListener('change', () => {
   renderJointCategoryPie();
   renderJointIncome();
@@ -973,7 +1028,7 @@ languageSelect.addEventListener('change', () => {
   lang = languageSelect.value;
   savePreferences({ lang });
   applyStaticTranslations();
-  renderCategoryFilterOptions();
+  renderCategoryFilterCheckboxes();
   if (state.items.length) {
     renderSummary();
     renderIncomeBySource();
@@ -989,7 +1044,7 @@ languageSelect.addEventListener('change', () => {
 });
 
 applyStaticTranslations();
-renderCategoryFilterOptions();
+renderCategoryFilterCheckboxes();
 languageSelect.value = lang;
 if (ownerNameInput && prefs.ownerName) ownerNameInput.value = prefs.ownerName;
 ownerNameInput?.addEventListener('change', () => savePreferences({ ownerName: ownerNameInput.value }));

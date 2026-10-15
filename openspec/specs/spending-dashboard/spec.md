@@ -48,7 +48,7 @@ The system SHALL display, for the selected month, total spending, total income (
 - **THEN** the displayed total spending reflects the net amount, not the sum of the purchase and the refund treated as separate spending
 
 ### Requirement: Category pie chart
-The system SHALL display a pie chart breaking down the selected month's spending by category, showing each category's percentage of total spending directly alongside its label (not only on hover), and SHALL let the user list the individual transactions within a category as a table with date, description, and amount columns, sorted oldest-first by date. Each category's slice value SHALL be the signed sum of its line items for the month, with absolute value taken only for that final total - not per line item before summing. A category whose signed total for the month is zero or positive SHALL be excluded from the pie (there is nothing to show as spending for it that month). Slices SHALL be sorted in descending order by amount, and each category SHALL always render in the same color across renders, with no two categories sharing a color.
+The system SHALL display a pie chart breaking down the selected month's spending by category, showing each category's percentage of total spending directly alongside its label (not only on hover), and SHALL let the user list the individual transactions within a category as a table with date, description, and amount columns, sorted oldest-first by date. Each category's slice value SHALL be the signed sum of its line items for the month, with absolute value taken only for that final total - not per line item before summing. A category whose signed total for the month is zero or positive SHALL be excluded from the pie (there is nothing to show as spending for it that month). Slices SHALL be sorted in descending order by amount, and each category SHALL always render in the same color across renders, with no two categories sharing a color. The pie SHALL only include a category currently checked in the category filter sidebar (see the Category filter sidebar requirement); an unchecked category's slice SHALL NOT appear even if it would otherwise be pie-eligible.
 
 #### Scenario: click a category slice
 - **WHEN** the user clicks a category in the pie chart
@@ -74,12 +74,43 @@ The system SHALL display a pie chart breaking down the selected month's spending
 - **WHEN** the category pie chart is displayed in any month
 - **THEN** a given category always renders in the same color, and no two categories displayed at once share a color
 
+#### Scenario: unchecking a category removes its slice
+- **WHEN** the user unchecks a category in the category filter sidebar that would otherwise appear in the pie
+- **THEN** that category's slice disappears from the pie, and the remaining slices' percentages are recalculated against the new, smaller total
+
 ### Requirement: Month-by-month trend with category filter
-The system SHALL display a bar chart comparing total spending across all available months, with a category dropdown that filters the chart to a single category's spending per month when selected.
+The system SHALL display a bar chart comparing total spending across all available months, summing only the categories currently checked in the category filter sidebar (see the Category filter sidebar requirement) into a single monthly total per month.
 
 #### Scenario: filter to one category
-- **WHEN** the user selects "Groceries" (Élelmiszer) from the category dropdown
+- **WHEN** the user unchecks every category except "Groceries" (Élelmiszer) in the category filter sidebar
 - **THEN** the bar chart updates to show only Élelmiszer spending for each month
+
+#### Scenario: unchecking a category removes it from the trend
+- **WHEN** the user unchecks a category in the category filter sidebar
+- **THEN** the bar chart's monthly totals no longer include that category's spending
+
+#### Scenario: all categories checked shows the full trend
+- **WHEN** every category is checked
+- **THEN** the bar chart shows each month's total spending across every category, matching today's "no filter" behavior
+
+### Requirement: Category filter sidebar
+The system SHALL display a persistent, multi-select category filter - one checkbox per spending category plus the non-income, non-spending categories (Készpénzfelvét, Egyéb) - positioned to the left of the category pie chart and the monthly trend bar chart, with every category checked by default. The system SHALL provide a "select all" control that re-checks every category in one action. The personal view and the joint view SHALL each maintain their own independent filter state, so checking or unchecking a category in one view SHALL NOT affect the other.
+
+#### Scenario: all categories checked by default
+- **WHEN** a file is uploaded and the dashboard first renders
+- **THEN** every category in the filter sidebar is checked, and both the pie chart and the bar chart reflect every category
+
+#### Scenario: select-all re-checks everything
+- **WHEN** the user has unchecked one or more categories, then clicks "select all"
+- **THEN** every category becomes checked again, and both charts reflect the full, unfiltered set
+
+#### Scenario: personal and joint filter state are independent
+- **WHEN** the user unchecks a category in the personal view's filter sidebar, then switches to the joint view
+- **THEN** the joint view's filter sidebar still shows every category checked (or whatever its own state was previously), unaffected by the personal view's change
+
+#### Scenario: unchecking every category leaves both charts empty, not broken
+- **WHEN** the user unchecks every category in the filter sidebar
+- **THEN** the pie chart and the bar chart both render with no data, rather than erroring or showing stale data
 
 ### Requirement: Income by source
 The system SHALL display, within the personal dashboard view, a prominent total income figure for the selected month and an itemized list of that month's income grouped by counterparty, with income from the same counterparty summed into a single line. Counterparties SHALL be grouped by a normalized name key (accent-stripped, case-insensitive, word-order-independent) so the same real source is not split across multiple lines due to formatting differences between banks, while the displayed label uses the first-seen raw spelling for that source. Clicking a line SHALL toggle a list of that source's individual transactions open or closed, displayed directly beneath that line (not in a separate area), sorted chronologically by date, each with its date and amount, mirroring the category pie chart's click-to-list behavior.

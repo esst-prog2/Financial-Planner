@@ -13,12 +13,17 @@ import { normalizeNameForGrouping } from './util.js';
 // has no month selector). jointOnly: true scopes to rev-joint transactions
 // using their full (unhalved) amountHuf; false uses personalAmountHuf
 // (already halved for joint lines) across every source.
-export function categoryTotals(items, { month = null, jointOnly = false } = {}) {
+// categories: null means "every category" (the category filter sidebar's
+// all-checked default); otherwise a Set of category names to include -
+// anything not in it contributes nothing to the totals, same as if it
+// didn't exist in items at all.
+export function categoryTotals(items, { month = null, jointOnly = false, categories = null } = {}) {
   const totals = new Map();
   for (const item of items) {
     if (jointOnly && item.source !== 'revolut-joint') continue;
     if (item.category === 'Bevétel') continue;
     if (month && monthOf(item.date) !== month) continue;
+    if (categories && !categories.has(item.category)) continue;
     const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
     totals.set(item.category, (totals.get(item.category) || 0) + amount);
   }
@@ -46,12 +51,14 @@ export function monthlySummary(items, month) {
   return { income, spending: Math.abs(netSpending), balance: income + netSpending };
 }
 
-export function monthlyTrend(items, category, { jointOnly = false } = {}) {
+// categories: null means "every category"; otherwise a Set of category
+// names to include - see categoryTotals above for the same convention.
+export function monthlyTrend(items, categories, { jointOnly = false } = {}) {
   const totals = new Map();
   for (const item of items) {
     if (jointOnly && item.source !== 'revolut-joint') continue;
     if (item.category === 'Bevétel') continue;
-    if (category && item.category !== category) continue;
+    if (categories && !categories.has(item.category)) continue;
     const month = monthOf(item.date);
     const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
     totals.set(month, (totals.get(month) || 0) + amount);
