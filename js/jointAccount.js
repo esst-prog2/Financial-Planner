@@ -17,24 +17,6 @@ export function splitJointAmount(amount) {
   return amount / 2;
 }
 
-// Grouped by name regardless of accents, case, or word order (see
-// normalizeNameForGrouping) - the same contributor's transfers shouldn't
-// split into separate rows just because a name got formatted differently.
-export function summarizeContributors(transactions) {
-  const grouped = new Map(); // normalized key -> { label, total }
-  for (const t of transactions) {
-    const name = isJointContribution(t) ? extractContributorName(t.description) : null;
-    if (!name) continue;
-    const key = normalizeNameForGrouping(name);
-    const existing = grouped.get(key);
-    if (existing) existing.total += t.amount;
-    else grouped.set(key, { label: name, total: t.amount });
-  }
-  const totals = new Map();
-  for (const { label, total } of grouped.values()) totals.set(label, total);
-  return totals;
-}
-
 // The label a joint-account income row (and its click-to-list) uses for a
 // transaction: a known device owner first (see deviceOwners.js - a card
 // top-up has no sender name in the bank data itself, just a device
@@ -57,16 +39,13 @@ export function jointIncomeLabel(transaction, overrides = {}) {
 // matching the "Átutalás tőle:" pattern - e.g. a card/Apple Pay top-up is
 // real money arriving in the account too, even though it's excluded from
 // the user's personal Bevétel elsewhere (see isCardTopUpMovement in
-// categorize.js). Grouped by jointIncomeLabel(), normalized the same way
-// as summarizeContributors so the same real source isn't split across
-// rows. month: required - scopes to that month only, like the rest of the
-// joint view's month-scoped pieces (the category pie). An earlier version
-// of this list was all-time, like the old contributor list it replaced -
-// that read as wrong once there was more than one month of data and
-// multiple top-ups to reconcile against a single month's bank statement,
-// so this list is month-scoped instead, unlike the still-all-time
-// contributor totals summarizeContributors itself computes for the
-// exclusion logic.
+// categorize.js). Grouped by jointIncomeLabel(), normalized via
+// normalizeNameForGrouping so the same real source isn't split across rows
+// just because a name got formatted differently. month: required - scopes
+// to that month only, like the rest of the joint view's month-scoped
+// pieces (the category pie) - an earlier, all-time version of this list
+// read as wrong once there was more than one month of data to reconcile
+// against a single month's bank statement.
 // Returns [label, total] pairs sorted largest first, like incomeBySource.
 // `overrides` is forwarded to jointIncomeLabel() - see there.
 export function summarizeJointIncome(transactions, month, overrides = {}) {
