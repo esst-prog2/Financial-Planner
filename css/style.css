@@ -584,19 +584,25 @@ canvas {
 }
 
 #category-transactions,
-#joint-category-transactions {
+#joint-category-transactions,
+#monthly-bar-transactions,
+#joint-monthly-bar-transactions {
   margin-top: 0.75rem;
 }
 
 #category-transactions table,
-#joint-category-transactions table {
+#joint-category-transactions table,
+#monthly-bar-transactions table,
+#joint-monthly-bar-transactions table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
 
 #category-transactions th,
-#joint-category-transactions th {
+#joint-category-transactions th,
+#monthly-bar-transactions th,
+#joint-monthly-bar-transactions th {
   text-align: left;
   font-weight: 600;
   color: var(--pink-700);
@@ -605,15 +611,21 @@ canvas {
 }
 
 #category-transactions td,
-#joint-category-transactions td {
+#joint-category-transactions td,
+#monthly-bar-transactions td,
+#joint-monthly-bar-transactions td {
   padding: 0.3rem 0.5rem;
   border-bottom: 1px dashed var(--pink-100);
 }
 
 #category-transactions td:last-child,
 #joint-category-transactions td:last-child,
+#monthly-bar-transactions td:last-child,
+#joint-monthly-bar-transactions td:last-child,
 #category-transactions th:last-child,
-#joint-category-transactions th:last-child {
+#joint-category-transactions th:last-child,
+#monthly-bar-transactions th:last-child,
+#joint-monthly-bar-transactions th:last-child {
   text-align: right;
 }
 
@@ -621,13 +633,19 @@ canvas {
    the description (3rd column) wraps when it's too long. */
 #category-transactions td:nth-child(2),
 #joint-category-transactions td:nth-child(2),
+#monthly-bar-transactions td:nth-child(2),
+#joint-monthly-bar-transactions td:nth-child(2),
 #category-transactions td:last-child,
-#joint-category-transactions td:last-child {
+#joint-category-transactions td:last-child,
+#monthly-bar-transactions td:last-child,
+#joint-monthly-bar-transactions td:last-child {
   white-space: nowrap;
 }
 
 #category-transactions td:nth-child(3),
-#joint-category-transactions td:nth-child(3) {
+#joint-category-transactions td:nth-child(3),
+#monthly-bar-transactions td:nth-child(3),
+#joint-monthly-bar-transactions td:nth-child(3) {
   white-space: normal;
   word-break: break-word;
 }

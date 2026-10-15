@@ -22,10 +22,12 @@ const summaryTextEl = document.getElementById('summary-text');
 const categoryFilterList = document.getElementById('category-filter-list');
 const categoryFilterSelectAll = document.getElementById('category-filter-select-all');
 const categoryTransactions = document.getElementById('category-transactions');
+const monthlyBarTransactions = document.getElementById('monthly-bar-transactions');
 const jointCategoryFilterList = document.getElementById('joint-category-filter-list');
 const jointCategoryFilterSelectAll = document.getElementById('joint-category-filter-select-all');
 const jointContributors = document.getElementById('joint-contributors');
 const jointCategoryTransactions = document.getElementById('joint-category-transactions');
+const jointMonthlyBarTransactions = document.getElementById('joint-monthly-bar-transactions');
 const jointMonthSelect = document.getElementById('joint-month-select');
 const languageSelect = document.getElementById('language-select');
 const incomeTotalEl = document.getElementById('income-total');
@@ -283,7 +285,7 @@ function transactionRowHtml(id, text, kind) {
 // one-line-per-row lists the income lists still use. `amountField` is
 // 'personalAmountHuf' for the personal view or 'amountHuf' for the joint
 // view, since a joint-sourced row carries both (see pipeline.js).
-function expenseTableHtml(category, rows, amountField) {
+function expenseTableHtml(heading, rows, amountField) {
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
   const bodyRows = sorted
     .map((r) => {
@@ -299,7 +301,7 @@ function expenseTableHtml(category, rows, amountField) {
     })
     .join('');
   return (
-    `<h3>${categoryLabel(category, lang)}</h3>` +
+    `<h3>${heading}</h3>` +
     '<table><thead><tr><th></th>' +
     `<th>${t('tableDateLabel', lang)}</th><th>${t('tableDescriptionLabel', lang)}</th><th>${t('tableAmountLabel', lang)}</th>` +
     `</tr></thead><tbody>${bodyRows}</tbody></table>`
@@ -366,9 +368,46 @@ function renderCategoryPie() {
   });
 }
 
+// Shared by all four click-to-list containers below (category pie chart,
+// monthly trend bar chart, personal and joint): clicking the same
+// category/month twice in a row closes its list instead of re-rendering
+// it. The currently-open key lives on the container itself (data-open),
+// mirroring toggleTransactionDetail's pattern of reading state off the DOM
+// rather than tracking it in a separate variable. Every place that clears
+// one of these containers must also clear its data-open attribute, or a
+// stale value could make the next click on that same category/month look
+// like "already open" and close instead of show.
+function clearDetailContainer(container) {
+  container.innerHTML = '';
+  delete container.dataset.open;
+}
+
+function toggleDetailContainer(container, key, render) {
+  if (container.dataset.open === key) {
+    container.innerHTML = '';
+    delete container.dataset.open;
+    return;
+  }
+  render();
+  container.dataset.open = key;
+}
+
 function renderCategoryTransactionList(category, month) {
-  const rows = state.items.filter((i) => i.category === category && monthOf(i.date) === month);
-  categoryTransactions.innerHTML = expenseTableHtml(category, rows, 'personalAmountHuf');
+  toggleDetailContainer(categoryTransactions, category, () => {
+    const rows = state.items.filter((i) => i.category === category && monthOf(i.date) === month);
+    categoryTransactions.innerHTML = expenseTableHtml(categoryLabel(category, lang), rows, 'personalAmountHuf');
+  });
+}
+
+// A bar's value is the sum of every currently-checked category for that
+// month (see monthlyTrend in aggregate.js) - the list behind it has to
+// match that same scope, or it would disagree with the bar the same way
+// the bar and pie chart's totals disagreed before that bug fix.
+function renderMonthlyTransactionList(month) {
+  toggleDetailContainer(monthlyBarTransactions, month, () => {
+    const rows = state.items.filter((i) => selectedCategories.has(i.category) && monthOf(i.date) === month);
+    monthlyBarTransactions.innerHTML = expenseTableHtml(month, rows, 'personalAmountHuf');
+  });
 }
 
 // The bar stays a single series (the sum of whatever's currently checked),
@@ -391,6 +430,12 @@ function renderMonthlyBar() {
       labels: trend.map(([month]) => month),
       datasets: [{ label: trendDatasetLabel(selectedCategories), data: trend.map(([, total]) => total) }],
     },
+    options: {
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        renderMonthlyTransactionList(trend[elements[0].index][0]);
+      },
+    },
   });
 }
 
@@ -404,12 +449,27 @@ function renderJointMonthlyBar() {
       labels: trend.map(([month]) => month),
       datasets: [{ label: trendDatasetLabel(jointSelectedCategories), data: trend.map(([, total]) => total) }],
     },
+    options: {
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        renderJointMonthlyTransactionList(trend[elements[0].index][0]);
+      },
+    },
   });
 }
 
 function renderJointCategoryTransactionList(category, month) {
-  const rows = state.items.filter((i) => i.source === 'revolut-joint' && i.category === category && monthOf(i.date) === month);
-  jointCategoryTransactions.innerHTML = expenseTableHtml(category, rows, 'amountHuf');
+  toggleDetailContainer(jointCategoryTransactions, category, () => {
+    const rows = state.items.filter((i) => i.source === 'revolut-joint' && i.category === category && monthOf(i.date) === month);
+    jointCategoryTransactions.innerHTML = expenseTableHtml(categoryLabel(category, lang), rows, 'amountHuf');
+  });
+}
+
+function renderJointMonthlyTransactionList(month) {
+  toggleDetailContainer(jointMonthlyBarTransactions, month, () => {
+    const rows = state.items.filter((i) => i.source === 'revolut-joint' && jointSelectedCategories.has(i.category) && monthOf(i.date) === month);
+    jointMonthlyBarTransactions.innerHTML = expenseTableHtml(month, rows, 'amountHuf');
+  });
 }
 
 function renderJointCategoryPie() {
@@ -642,8 +702,10 @@ fileInput.addEventListener('change', async (event) => {
     viewSwitch.hidden = false;
     // Any previously-shown category/income detail is for the old upload's
     // data - clear it rather than leave it stale.
-    categoryTransactions.innerHTML = '';
-    jointCategoryTransactions.innerHTML = '';
+    clearDetailContainer(categoryTransactions);
+    clearDetailContainer(jointCategoryTransactions);
+    clearDetailContainer(monthlyBarTransactions);
+    clearDetailContainer(jointMonthlyBarTransactions);
     renderAll();
     // If the joint view is the one currently visible, it needs its own
     // re-render too - renderAll() deliberately skips it (see its comment),
@@ -668,7 +730,8 @@ monthSelect.addEventListener('change', () => {
   // A previously-clicked category's transaction list is now stale (it was
   // for the old month) - clear it rather than leave it showing until the
   // user happens to click a slice again.
-  categoryTransactions.innerHTML = '';
+  clearDetailContainer(categoryTransactions);
+  clearDetailContainer(monthlyBarTransactions);
   savePreferences({ lastMonth: monthSelect.value });
 });
 // Delegated, same pattern as the .tx-select listener above - the checkbox
@@ -719,7 +782,8 @@ jointCategoryFilterSelectAll.addEventListener('change', () => {
 jointMonthSelect.addEventListener('change', () => {
   renderJointCategoryPie();
   renderJointIncome();
-  jointCategoryTransactions.innerHTML = '';
+  clearDetailContainer(jointCategoryTransactions);
+  clearDetailContainer(jointMonthlyBarTransactions);
   savePreferences({ lastMonth: jointMonthSelect.value });
 });
 
@@ -776,8 +840,10 @@ function afterTransactionsChanged() {
   selectedKinds = new Map();
   deleteBar.hidden = true;
   allocationPanel.hidden = true;
-  categoryTransactions.innerHTML = '';
-  jointCategoryTransactions.innerHTML = '';
+  clearDetailContainer(categoryTransactions);
+  clearDetailContainer(jointCategoryTransactions);
+  clearDetailContainer(monthlyBarTransactions);
+  clearDetailContainer(jointMonthlyBarTransactions);
   renderAll();
   if (!document.getElementById('joint-view').hidden) renderJointView();
 }
@@ -1045,10 +1111,12 @@ languageSelect.addEventListener('change', () => {
     renderCategoryPie();
     renderMonthlyBar();
     // A previously-shown detail list's heading (category label, or a "no
-    // description" fallback) is still in the old language - clear it
-    // rather than leave it stale.
-    categoryTransactions.innerHTML = '';
-    jointCategoryTransactions.innerHTML = '';
+    // description" fallback) and its table column headers are still in the
+    // old language - clear it rather than leave it stale.
+    clearDetailContainer(categoryTransactions);
+    clearDetailContainer(jointCategoryTransactions);
+    clearDetailContainer(monthlyBarTransactions);
+    clearDetailContainer(jointMonthlyBarTransactions);
     if (!document.getElementById('joint-view').hidden) renderJointView();
   }
 });
