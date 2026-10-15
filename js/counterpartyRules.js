@@ -34,6 +34,12 @@ export function resolveCounterpartyRules(idRules, nameById) {
 let nameById = {};
 try {
   const mod = await import('./counterpartyRules.local.js');
+  // The file loaded fine, but `undefined` here means its export is missing
+  // or misnamed - a real mistake, not "no names yet", and the catch below
+  // won't have caught it since nothing threw.
+  if (mod.COUNTERPARTY_NAME_BY_ID === undefined) {
+    console.warn('[counterpartyRules] counterpartyRules.local.js loaded but has no COUNTERPARTY_NAME_BY_ID export - check the export name');
+  }
   nameById = mod.COUNTERPARTY_NAME_BY_ID || {};
 } catch (err) {
   // A missing local file is expected on a fresh clone, in CI, or when

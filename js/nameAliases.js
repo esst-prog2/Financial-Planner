@@ -16,6 +16,12 @@ import { normalizeNameForGrouping } from './util.js';
 let rawAliasMap = {};
 try {
   const mod = await import('./nameAliases.local.js');
+  // The file loaded fine, but `undefined` here means its export is missing
+  // or misnamed - a real mistake, not "no aliases yet", and the catch below
+  // won't have caught it since nothing threw.
+  if (mod.NAME_ALIASES === undefined) {
+    console.warn('[nameAliases] nameAliases.local.js loaded but has no NAME_ALIASES export - check the export name');
+  }
   rawAliasMap = mod.NAME_ALIASES || {};
 } catch (err) {
   // A missing local file is expected on a fresh clone, in CI, or when
