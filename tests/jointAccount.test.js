@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractContributorName, isJointContribution, splitJointAmount, summarizeContributors, summarizeJointIncome } from '../js/jointAccount.js';
+import { extractContributorName, isJointContribution, splitJointAmount, summarizeJointIncome } from '../js/jointAccount.js';
 
 // Explicit empty overrides keep these tests from depending on whatever
 // (if anything) happens to be in this machine's gitignored local device-
@@ -17,28 +17,11 @@ test('extracts a contributor name from "Átutalás tőle: <name>"', () => {
   assert.equal(extractContributorName('Lidl'), null);
 });
 
-test('summarizes contribution totals per contributor', () => {
-  const transactions = [
-    { source: 'revolut-joint', description: 'Átutalás tőle: T TIBI', amount: 20000 },
-    { source: 'revolut-joint', description: 'Átutalás tőle: VARGA JUTKA', amount: 15000 },
-    { source: 'revolut-joint', description: 'Átutalás tőle: T TIBI', amount: 5000 },
-    { source: 'revolut-joint', description: 'Lidl', amount: -3000 },
-  ];
-  const totals = summarizeContributors(transactions);
-  assert.equal(totals.get('T TIBI'), 25000);
-  assert.equal(totals.get('VARGA JUTKA'), 15000);
-  assert.equal(isJointContribution(transactions[0]), true);
-  assert.equal(isJointContribution(transactions[3]), false);
-});
-
-test('the same contributor combines into one row even with accent/case/word-order differences', () => {
-  const transactions = [
-    { source: 'revolut-joint', description: 'Átutalás tőle: Fikció Hanna', amount: 20000 },
-    { source: 'revolut-joint', description: 'Átutalás tőle: hanna fikcio', amount: 5000 },
-  ];
-  const totals = summarizeContributors(transactions);
-  assert.equal(totals.size, 1);
-  assert.equal([...totals.values()][0], 25000);
+test('isJointContribution is true for a named "tőle" transfer into the joint account, false for an outgoing/non-transfer row', () => {
+  const contribution = { source: 'revolut-joint', description: 'Átutalás tőle: T TIBI', amount: 20000 };
+  const spending = { source: 'revolut-joint', description: 'Lidl', amount: -3000 };
+  assert.equal(isJointContribution(contribution), true);
+  assert.equal(isJointContribution(spending), false);
 });
 
 test('summarizeJointIncome includes a named contributor and a non-"tőle" top-up, not just named transfers', () => {

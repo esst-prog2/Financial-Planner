@@ -26,9 +26,20 @@ export function extractDeviceRef(description) {
 let ownerByDeviceRef = {};
 try {
   const mod = await import('./deviceOwners.local.js');
+  // The file loaded fine, but `undefined` here means its export is missing
+  // or misnamed (e.g. a typo) - a real mistake, not "no mapping yet", and
+  // the try/catch above won't have caught it since nothing threw. Warn
+  // specifically, rather than letting `|| {}` make the same empty-mapping
+  // decision for a genuine bug as for an intentionally-empty local file.
+  if (mod.DEVICE_OWNER_BY_REF === undefined) {
+    console.warn('[deviceOwners] deviceOwners.local.js loaded but has no DEVICE_OWNER_BY_REF export - check the export name');
+  }
   ownerByDeviceRef = mod.DEVICE_OWNER_BY_REF || {};
-} catch {
-  // No local mapping file - expected on a fresh clone, in CI, or when grading.
+} catch (err) {
+  // A missing local file is expected on a fresh clone, in CI, or when
+  // grading - but this catch can't tell that case apart from a real bug
+  // in the local file, so it logs rather than staying fully silent.
+  console.warn('[deviceOwners] deviceOwners.local.js not loaded:', err.message);
 }
 
 // Returns the display name for a transaction description's top-up device

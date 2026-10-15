@@ -213,22 +213,31 @@ function renderIncomeBySource() {
     .join('');
 }
 
+// Shared by both income detail toggles below (personal and joint), which
+// were two near-identical copies of this same open/close-sort-render logic
+// before being factored out here - only what rows to show and which field
+// holds the amount actually differ between them.
+function toggleTransactionDetail(row, rows, amountOf) {
+  const detail = row.querySelector('.row-detail');
+  if (!detail.hidden) {
+    detail.hidden = true;
+    return;
+  }
+  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+  detail.innerHTML = sorted.map((r) => transactionRowHtml(r.id, `${r.date} - ${formatHuf(Math.abs(amountOf(r)))} HUF`, 'income')).join('');
+  detail.hidden = false;
+}
+
 // Toggles a clicked income source's individual Bevétel transactions - date
 // order - open or closed, right under that row (not in a separate area).
 // Mirrors renderCategoryTransactionList's click-to-list behavior, but keyed
 // by the normalized source name rather than category, since several raw
 // labels can collapse into one row.
 function toggleIncomeSourceDetail(row, key, month) {
-  const detail = row.querySelector('.row-detail');
-  if (!detail.hidden) {
-    detail.hidden = true;
-    return;
-  }
-  const rows = state.items
-    .filter((i) => i.category === 'Bevétel' && monthOf(i.date) === month && normalizeNameForGrouping(i.counterparty || i.description || '') === key)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  detail.innerHTML = rows.map((r) => transactionRowHtml(r.id, `${r.date} - ${formatHuf(Math.abs(r.personalAmountHuf))} HUF`, 'income')).join('');
-  detail.hidden = false;
+  const rows = state.items.filter(
+    (i) => i.category === 'Bevétel' && monthOf(i.date) === month && normalizeNameForGrouping(i.counterparty || i.description || '') === key,
+  );
+  toggleTransactionDetail(row, rows, (r) => r.personalAmountHuf);
 }
 
 // A single deletable transaction row: a checkbox (picked up by the
@@ -420,16 +429,8 @@ function renderJointView() {
 // by, since several raw labels (e.g. accent variants) can collapse into
 // one row.
 function toggleJointIncomeDetail(row, key, month) {
-  const detail = row.querySelector('.row-detail');
-  if (!detail.hidden) {
-    detail.hidden = true;
-    return;
-  }
-  const rows = state.jointRaw
-    .filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(jointIncomeLabel(tx)) === key)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  detail.innerHTML = rows.map((r) => transactionRowHtml(r.id, `${r.date} - ${formatHuf(Math.abs(r.amount))} HUF`, 'income')).join('');
-  detail.hidden = false;
+  const rows = state.jointRaw.filter((tx) => tx.amount > 0 && monthOf(tx.date) === month && normalizeNameForGrouping(jointIncomeLabel(tx)) === key);
+  toggleTransactionDetail(row, rows, (r) => r.amount);
 }
 
 // Grouped by the expense that was deducted from, each group's own

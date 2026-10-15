@@ -34,9 +34,21 @@ export function resolveCounterpartyRules(idRules, nameById) {
 let nameById = {};
 try {
   const mod = await import('./counterpartyRules.local.js');
+  // The file loaded fine, but `undefined` here means its export is missing
+  // or misnamed - a real mistake, not "no names yet", and the catch below
+  // won't have caught it since nothing threw.
+  if (mod.COUNTERPARTY_NAME_BY_ID === undefined) {
+    console.warn('[counterpartyRules] counterpartyRules.local.js loaded but has no COUNTERPARTY_NAME_BY_ID export - check the export name');
+  }
   nameById = mod.COUNTERPARTY_NAME_BY_ID || {};
-} catch {
-  // No local mapping file - expected on a fresh clone, in CI, or when grading.
+} catch (err) {
+  // A missing local file is expected on a fresh clone, in CI, or when
+  // grading - but this catch can't tell that case apart from a real bug
+  // in the local file (e.g. a typo breaking its syntax), so it logs
+  // rather than staying fully silent: the app still runs with no
+  // counterparty overrides either way, but a real problem stays visible
+  // in the console instead of disappearing.
+  console.warn('[counterpartyRules] counterpartyRules.local.js not loaded:', err.message);
 }
 
 export const COUNTERPARTY_CATEGORY_RULES = resolveCounterpartyRules(COUNTERPARTY_CATEGORY_RULES_BY_ID, nameById);
