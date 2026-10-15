@@ -7,7 +7,7 @@ Assigns every non-excluded transaction to exactly one of 12 spending categories 
 ## Requirements
 
 ### Requirement: Uniform keyword-based categorization
-The system SHALL assign every non-excluded transaction from either bank to exactly one of the 12 spending categories (Élelmiszer, Eating out, Ruházat/bevásárlás, Egészség/szépség, Szolgáltatások, Orvos, Sport, Közlekedés, Számlák/előfizetés, Megtakarítás, Szórakozás, Utalás) using the same keyword-matching rules against the transaction's description text, regardless of source bank. Matching SHALL be accent-insensitive: both the description text and the keyword lists are compared with Hungarian diacritics normalized away, so a merchant name with stripped accents (as commonly occurs in real exports) still matches. A counterparty-name override (see the Counterparty-name override requirement), when it applies, SHALL take priority over keyword matching. OTP's own "Tranzakció kategória" column SHALL NOT be used as an input to categorization.
+The system SHALL assign every non-excluded transaction from either bank to exactly one of the 12 spending categories (Élelmiszer, Eating out, Ruházat/bevásárlás, Egészség/szépség, Szolgáltatások, Orvos, Sport, Közlekedés, Számlák/előfizetés, Megtakarítás, Szórakozás, Utalás) using the same keyword-matching rules against the transaction's description text, regardless of source bank. Matching SHALL be accent-insensitive: both the description text and the keyword lists are compared with Hungarian diacritics normalized away, so a merchant name with stripped accents (as commonly occurs in real exports) still matches. A keyword short or generic enough that matching it anywhere in the description risks matching unrelated merchants SHALL instead be matched only as its own whole word. A counterparty-name override (see the Counterparty-name override requirement), when it applies, SHALL take priority over keyword matching. OTP's own "Tranzakció kategória" column SHALL NOT be used as an input to categorization.
 
 #### Scenario: Groceries keyword match
 - **WHEN** a transaction's description contains "Lidl" or "Spar"
@@ -28,6 +28,14 @@ The system SHALL assign every non-excluded transaction from either bank to exact
 #### Scenario: hobby/book-shop merchant is Szórakozás, not Ruházat/bevásárlás
 - **WHEN** a transaction's description indicates a hobby shop or bookstore (e.g. contains "hobby" or "könyvesbolt")
 - **THEN** the transaction is categorized as Szórakozás
+
+#### Scenario: a whole-word keyword does not match as a mere substring
+- **WHEN** a transaction's description contains a short, generic keyword only as part of a longer, unrelated word (e.g. "one" inside "vodafone")
+- **THEN** that keyword does not match, unlike a keyword meant to match as a substring anywhere
+
+#### Scenario: a whole-word keyword matches when it stands on its own
+- **WHEN** a transaction's description is exactly a short, generic keyword with no other text
+- **THEN** that keyword matches and the transaction is categorized accordingly
 
 ### Requirement: Income override
 The system SHALL categorize any non-excluded transaction with a positive amount as Bevétel, UNLESS its description matches a merchant/service-type spending category's keywords (Élelmiszer, Eating out, Ruházat/bevásárlás, Egészség/szépség, Szolgáltatások, Orvos, Sport, Közlekedés, Számlák/előfizetés, Szórakozás, or Megtakarítás), in which case it SHALL be categorized into that matched category instead, representing a refund or reversal rather than new income. This exception SHALL NOT apply to the Utalás category: a positive-amount transaction matching Utalás's keywords SHALL still be categorized as Bevétel.
