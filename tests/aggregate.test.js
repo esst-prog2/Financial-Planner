@@ -124,6 +124,21 @@ test('monthlyTrend with an empty categories Set returns no months', () => {
   assert.deepEqual(trend, []);
 });
 
+test('monthlyTrend matches the pie chart total: a refund-heavy category does not cancel out another category\'s spending', () => {
+  const items = [
+    item({ category: 'Élelmiszer', date: '2026-03-05', personalAmountHuf: -60000 }),
+    item({ category: 'Sport', date: '2026-03-05', personalAmountHuf: -30000 }),
+    // Megtakarítás nets positive this month (a withdrawal/refund exceeds what went in)
+    // and must be excluded entirely, not netted against the other categories.
+    item({ category: 'Megtakarítás', date: '2026-03-05', personalAmountHuf: 90000 }),
+  ];
+  const categories = new Set(['Élelmiszer', 'Sport', 'Megtakarítás']);
+  const trend = monthlyTrend(items, categories);
+  const pieTotal = pieEligibleRows(categoryTotals(items, { month: '2026-03', categories })).reduce((sum, r) => sum + r.value, 0);
+  assert.deepEqual(trend, [['2026-03', 90000]]);
+  assert.equal(trend[0][1], pieTotal);
+});
+
 test('incomeBySource groups repeated income from the same counterparty and sorts descending', () => {
   const items = [
     item({ category: 'Bevétel', counterparty: 'Employer Kft.', personalAmountHuf: 350000 }),

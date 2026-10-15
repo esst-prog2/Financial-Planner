@@ -53,18 +53,30 @@ export function monthlySummary(items, month) {
 
 // categories: null means "every category"; otherwise a Set of category
 // names to include - see categoryTotals above for the same convention.
+//
+// Nets per CATEGORY first, then excludes a category whose net is zero or
+// positive (same rule pieEligibleRows applies for the pie chart), and only
+// then sums the remaining categories' absolute values - not a single
+// combined net-then-abs across every checked category. Summing raw first
+// would let a refund-heavy category (net positive) silently cancel out
+// another category's real spending before the total is ever shown, which
+// doesn't match the pie chart showing the same checked categories for the
+// same month - a found-via-use bug (the two charts briefly disagreed on
+// one month's total with multiple categories checked, see PLANNING_LOG).
 export function monthlyTrend(items, categories, { jointOnly = false } = {}) {
-  const totals = new Map();
+  const perMonth = new Map(); // month -> Map(category -> signed total)
   for (const item of items) {
     if (jointOnly && item.source !== 'revolut-joint') continue;
     if (item.category === 'Bevétel') continue;
     if (categories && !categories.has(item.category)) continue;
     const month = monthOf(item.date);
     const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
-    totals.set(month, (totals.get(month) || 0) + amount);
+    if (!perMonth.has(month)) perMonth.set(month, new Map());
+    const catTotals = perMonth.get(month);
+    catTotals.set(item.category, (catTotals.get(item.category) || 0) + amount);
   }
-  return [...totals.entries()]
-    .map(([month, netAmount]) => [month, Math.abs(netAmount)])
+  return [...perMonth.entries()]
+    .map(([month, catTotals]) => [month, pieEligibleRows(catTotals).reduce((sum, r) => sum + r.value, 0)])
     .sort(([a], [b]) => a.localeCompare(b));
 }
 
