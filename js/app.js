@@ -147,6 +147,8 @@ function categoryFilterListHtml(selected) {
 function renderCategoryFilterCheckboxes() {
   categoryFilterList.innerHTML = categoryFilterListHtml(selectedCategories);
   jointCategoryFilterList.innerHTML = categoryFilterListHtml(jointSelectedCategories);
+  categoryFilterSelectAll.checked = selectedCategories.size === ALL_CATEGORIES.length;
+  jointCategoryFilterSelectAll.checked = jointSelectedCategories.size === ALL_CATEGORIES.length;
 }
 
 // Renders the available months as a row of tab buttons instead of a
@@ -680,6 +682,10 @@ categoryFilterList.addEventListener('change', (event) => {
   if (!checkbox) return;
   if (checkbox.checked) selectedCategories.add(checkbox.value);
   else selectedCategories.delete(checkbox.value);
+  // The master checkbox reflects, not just sets, the all-checked state -
+  // setting .checked here doesn't fire its own 'change' event, so this
+  // can't recursively trigger the select-all/deselect-all handler below.
+  categoryFilterSelectAll.checked = selectedCategories.size === ALL_CATEGORIES.length;
   renderCategoryPie();
   renderMonthlyBar();
 });
@@ -689,19 +695,23 @@ jointCategoryFilterList.addEventListener('change', (event) => {
   if (!checkbox) return;
   if (checkbox.checked) jointSelectedCategories.add(checkbox.value);
   else jointSelectedCategories.delete(checkbox.value);
+  jointCategoryFilterSelectAll.checked = jointSelectedCategories.size === ALL_CATEGORIES.length;
   renderJointCategoryPie();
   renderJointMonthlyBar();
 });
 
-categoryFilterSelectAll.addEventListener('click', () => {
-  selectedCategories = new Set(ALL_CATEGORIES);
+// Bidirectional master checkbox: checked selects every category, unchecked
+// deselects every category (no indeterminate/tri-state visual - a plain
+// binary, per the user's explicit choice).
+categoryFilterSelectAll.addEventListener('change', () => {
+  selectedCategories = categoryFilterSelectAll.checked ? new Set(ALL_CATEGORIES) : new Set();
   renderCategoryFilterCheckboxes();
   renderCategoryPie();
   renderMonthlyBar();
 });
 
-jointCategoryFilterSelectAll.addEventListener('click', () => {
-  jointSelectedCategories = new Set(ALL_CATEGORIES);
+jointCategoryFilterSelectAll.addEventListener('change', () => {
+  jointSelectedCategories = jointCategoryFilterSelectAll.checked ? new Set(ALL_CATEGORIES) : new Set();
   renderCategoryFilterCheckboxes();
   renderJointCategoryPie();
   renderJointMonthlyBar();

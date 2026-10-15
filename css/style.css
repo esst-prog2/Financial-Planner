@@ -235,6 +235,14 @@ nav#view-switch button.active {
   top: var(--gap);
 }
 
+.category-filter-sidebar .select-all {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+
 .category-filter-sidebar ul {
   list-style: none;
   margin: 0.5rem 0 0;
