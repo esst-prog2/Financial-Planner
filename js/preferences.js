@@ -17,7 +17,13 @@ export function loadPreferences(storage = defaultStorage()) {
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
+  } catch (err) {
+    // Corrupted stored JSON, or storage.getItem threw - degrading to {}
+    // (so the app starts fresh rather than crashing) is still the right
+    // call, but logging means a real problem (e.g. hand-edited localStorage
+    // left invalid) is visible instead of just quietly resetting every
+    // saved preference with no explanation.
+    console.warn('[preferences] could not read saved preferences, starting fresh:', err.message);
     return {};
   }
 }
@@ -27,8 +33,11 @@ export function savePreferences(partial, storage = defaultStorage()) {
   try {
     const current = loadPreferences(storage);
     storage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...partial }));
-  } catch {
+  } catch (err) {
     // Storage unavailable or full - nothing persists this session, but the
-    // app itself keeps working off in-memory state either way.
+    // app itself keeps working off in-memory state either way. Logged for
+    // the same reason as above: silent here just means a confusing "my
+    // settings keep resetting" report later with no clue why.
+    console.warn('[preferences] could not save preferences:', err.message);
   }
 }

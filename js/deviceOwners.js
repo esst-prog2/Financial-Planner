@@ -27,8 +27,11 @@ let ownerByDeviceRef = {};
 try {
   const mod = await import('./deviceOwners.local.js');
   ownerByDeviceRef = mod.DEVICE_OWNER_BY_REF || {};
-} catch {
-  // No local mapping file - expected on a fresh clone, in CI, or when grading.
+} catch (err) {
+  // A missing local file is expected on a fresh clone, in CI, or when
+  // grading - but this catch can't tell that case apart from a real bug
+  // in the local file, so it logs rather than staying fully silent.
+  console.warn('[deviceOwners] deviceOwners.local.js not loaded:', err.message);
 }
 
 // Returns the display name for a transaction description's top-up device

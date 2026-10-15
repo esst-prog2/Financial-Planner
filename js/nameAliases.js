@@ -17,8 +17,11 @@ let rawAliasMap = {};
 try {
   const mod = await import('./nameAliases.local.js');
   rawAliasMap = mod.NAME_ALIASES || {};
-} catch {
-  // No local file - expected on a fresh clone, in CI, or when grading.
+} catch (err) {
+  // A missing local file is expected on a fresh clone, in CI, or when
+  // grading - but this catch can't tell that case apart from a real bug
+  // in the local file, so it logs rather than staying fully silent.
+  console.warn('[nameAliases] nameAliases.local.js not loaded:', err.message);
 }
 
 // Returns the canonical display name for a raw label, if a configured
