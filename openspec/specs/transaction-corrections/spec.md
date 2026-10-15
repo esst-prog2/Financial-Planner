@@ -18,7 +18,7 @@ The system SHALL assign every parsed transaction a stable identity derived from 
 - **THEN** they are each assigned a distinct identity, not merged into one
 
 ### Requirement: Select transactions for correction
-The system SHALL let the user select one or more individual transactions, in any of the personal income list, personal category list, joint category list, or joint income list, via a checkbox on each row. Once at least one transaction is selected, the system SHALL show a selection action bar offering to delete the selection or to clear it.
+The system SHALL let the user select one or more individual transactions, in any of the personal income list, personal category list, joint category list, or joint income list, via a checkbox on each row. Once at least one transaction is selected, the system SHALL show a selection action bar offering to delete the selection or to clear it. A transaction's selected state SHALL persist across a month switch: switching the currently-viewed month changes only which transactions are available to select next, not which ones are already selected.
 
 #### Scenario: selecting a transaction reveals the action bar
 - **WHEN** the user checks a transaction's checkbox
@@ -27,6 +27,10 @@ The system SHALL let the user select one or more individual transactions, in any
 #### Scenario: clearing the selection
 - **WHEN** the user clicks "clear selection" with one or more transactions checked
 - **THEN** every checked box is unchecked, the action bar disappears, and no transaction data changes
+
+#### Scenario: a selection survives switching to a different month
+- **WHEN** the user selects a transaction, then switches to a different month and selects a transaction there too
+- **THEN** both transactions remain selected and are both counted by the selection action bar
 
 ### Requirement: Delete selected transactions
 The system SHALL let the user permanently remove every currently-selected transaction from the dashboard. A deletion SHALL persist across a page reload and across a later upload of a different export covering an overlapping date range, matched by the deleted transaction's identity. Deleting a joint-account transaction SHALL remove it from both the joint view and its personal-view mirror.
@@ -44,7 +48,7 @@ The system SHALL let the user permanently remove every currently-selected transa
 - **THEN** it disappears from the joint view and from its mirrored entry in the personal view
 
 ### Requirement: Deduct an income transaction from one or more expenses
-When the current selection contains exactly one income transaction and at least one expense transaction, the system SHALL offer to split the income's amount across the selected expenses. The system SHALL provide, for each selected expense, a way to enter how much of the income to deduct from it, including quick-fill shortcuts for the smaller or larger of the income/expense amounts (in full or halved) and for an explicit percentage of that expense's own original amount (not its currently-remaining amount). The system SHALL NOT allow allocating more than the income's own amount, and SHALL NOT allow a single expense's allocation to exceed that expense's own remaining amount. The system SHALL allow allocating less than the full income; the unallocated remainder SHALL remain as income afterward, not be deleted.
+When the current selection contains exactly one income transaction and at least one expense transaction, the system SHALL offer to split the income's amount across the selected expenses. The system SHALL provide, for each selected expense, a way to enter how much of the income to deduct from it, including quick-fill shortcuts for the smaller or larger of the income/expense amounts (in full or halved) and for an explicit percentage of that expense's own original amount (not its currently-remaining amount). The system SHALL NOT allow allocating more than the income's own amount, and SHALL NOT allow a single expense's allocation to exceed that expense's own remaining amount. The system SHALL allow allocating less than the full income; the unallocated remainder SHALL remain as income afterward, not be deleted. The selected income and the selected expense(s) MAY belong to different months; the deduction action SHALL be offered and applied the same way regardless of whether they share a month. The resulting deduction SHALL be tracked against the expense's own month (per the Deduction history requirement), not the income's month or whichever month happened to be displayed when the deduction was applied.
 
 #### Scenario: selecting one income and one expense offers the deduction action
 - **WHEN** the user selects exactly one income transaction and at least one expense transaction
@@ -65,6 +69,14 @@ When the current selection contains exactly one income transaction and at least 
 #### Scenario: over-allocating the income is rejected
 - **WHEN** the amounts entered for the selected expenses sum to more than the income's own amount
 - **THEN** the system does not allow applying the deduction
+
+#### Scenario: deducting across two different months
+- **WHEN** the user selects an income transaction dated in one month and an expense transaction dated in a different month, then applies a deduction between them
+- **THEN** the deduction is applied the same way as if both had been dated in the same month
+
+#### Scenario: a cross-month deduction is tracked under the expense's own month
+- **WHEN** the user applies a deduction between an income dated in one month and an expense dated in a different month, while a third month (or either of the two) happens to be the currently-displayed one
+- **THEN** the deduction history entry appears when the expense's own month is selected, not when the income's month or the month active during the action is selected
 
 ### Requirement: Deduction history
 The system SHALL maintain a visible, permanent record of every applied deduction, grouped by the expense it was deducted from, scoped to the currently-selected month by that expense's own date. For each expense with at least one deduction still in effect, the system SHALL show its original amount (before any deduction), the percentage of that original amount deducted so far, and each individual deduction underneath it (naming the income it came from and the amount). An expense whose entire original amount has been deducted away SHALL no longer appear in this record.

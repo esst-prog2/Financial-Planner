@@ -58,6 +58,14 @@ let lang = prefs.lang || DEFAULT_LANGUAGE;
 // delete. Not the same thing as deletedTransactionIds below: this is just
 // "what's checked right now."
 let selectedForDeletion = new Set();
+// The kind ('income'/'expense') of each currently selected transaction,
+// kept alongside selectedForDeletion rather than derived from the live
+// DOM - a selection persists across a month switch (the list it was
+// checked in may no longer be rendered), so anything that needs to know
+// what's selected (updateActionBar, renderAllocationPanel) must read this
+// instead of querying checked checkboxes, which only exist for the
+// currently-displayed month.
+let selectedKinds = new Map();
 // Every id ever deleted, persisted via preferences.js (keyed by the stable
 // transaction id from assignTransactionIds) so a later upload - even of a
 // different export covering the same date range - doesn't bring a deleted
@@ -650,26 +658,31 @@ jointMonthSelect.addEventListener('change', () => {
   savePreferences({ lastMonth: jointMonthSelect.value });
 });
 
-// Delegated on #app rather than on each individual checkbox, since every
-// transaction list gets rebuilt via innerHTML on every render - a listener
-// on the checkbox itself would be gone the next time its list re-renders.
 // The "deduct" action only makes sense with at least one income and at
-// least one expense ticked at once (otherwise there's nothing to deduct
-// from) - re-evaluated against the live DOM's checked boxes every time the
-// selection changes, rather than tracked separately from selectedForDeletion.
+// least one expense selected at once (otherwise there's nothing to deduct
+// from) - read from selectedKinds rather than the live DOM, since a
+// selected transaction's checkbox may belong to a month that isn't
+// currently rendered at all.
 function updateActionBar() {
   deleteBar.hidden = selectedForDeletion.size === 0;
   deleteCountEl.textContent = selectedForDeletion.size;
-  const hasIncome = app.querySelector('.tx-select:checked[data-kind="income"]');
-  const hasExpense = app.querySelector('.tx-select:checked[data-kind="expense"]');
-  allocateButton.hidden = !(hasIncome && hasExpense);
+  const kinds = [...selectedKinds.values()];
+  allocateButton.hidden = !(kinds.includes('income') && kinds.includes('expense'));
 }
 
+// Delegated on #app rather than on each individual checkbox, since every
+// transaction list gets rebuilt via innerHTML on every render - a listener
+// on the checkbox itself would be gone the next time its list re-renders.
 app.addEventListener('change', (event) => {
   const checkbox = event.target.closest('.tx-select');
   if (!checkbox) return;
-  if (checkbox.checked) selectedForDeletion.add(checkbox.dataset.txId);
-  else selectedForDeletion.delete(checkbox.dataset.txId);
+  if (checkbox.checked) {
+    selectedForDeletion.add(checkbox.dataset.txId);
+    selectedKinds.set(checkbox.dataset.txId, checkbox.dataset.kind);
+  } else {
+    selectedForDeletion.delete(checkbox.dataset.txId);
+    selectedKinds.delete(checkbox.dataset.txId);
+  }
   updateActionBar();
 });
 
@@ -695,6 +708,7 @@ function recomputeState() {
 // scratch below), and re-render everything currently visible.
 function afterTransactionsChanged() {
   selectedForDeletion = new Set();
+  selectedKinds = new Map();
   deleteBar.hidden = true;
   allocationPanel.hidden = true;
   categoryTransactions.innerHTML = '';
@@ -717,6 +731,7 @@ function afterTransactionsChanged() {
 clearSelectionButton.addEventListener('click', () => {
   for (const checkbox of app.querySelectorAll('.tx-select:checked')) checkbox.checked = false;
   selectedForDeletion = new Set();
+  selectedKinds = new Map();
   updateActionBar();
 });
 
@@ -740,8 +755,11 @@ deleteButton.addEventListener('click', () => {
 let allocationIncomeId = null;
 
 function renderAllocationPanel() {
-  const incomeIds = [...app.querySelectorAll('.tx-select:checked[data-kind="income"]')].map((cb) => cb.dataset.txId);
-  const expenseIds = [...app.querySelectorAll('.tx-select:checked[data-kind="expense"]')].map((cb) => cb.dataset.txId);
+  // Read from selectedKinds, not the live DOM - the income and the
+  // expense(s) may belong to different months, so at most one of them is
+  // actually rendered (and checkable) right now.
+  const incomeIds = [...selectedKinds].filter(([, kind]) => kind === 'income').map(([id]) => id);
+  const expenseIds = [...selectedKinds].filter(([, kind]) => kind === 'expense').map(([id]) => id);
   if (incomeIds.length !== 1 || expenseIds.length === 0) return false;
 
   allocationIncomeId = incomeIds[0];
