@@ -38,6 +38,48 @@ test('a transaction from an unfamiliar shop (planted: "Sportshop Kft") categoriz
   assert.equal(category, 'Ruházat/bevásárlás');
 });
 
+// A real unfamiliar-merchant miss the user found on their own real export
+// and told Claude the correct category for directly - MOUNTEX is a
+// registered retail chain, not personal data, so the real name is fine to
+// commit (same basis as the existing keyword list's other real brand names).
+test('MOUNTEX (a real outdoor/sporting-goods retailer) categorizes as Ruházat/bevásárlás, not Sport - buying gear isn\'t doing a sport', () => {
+  const category = categorizeTransaction({ description: 'VÁSÁRLÁS KÁRTYÁVAL MOUNTEX', counterparty: 'MOUNTEX', amount: -21616 });
+  assert.equal(category, 'Ruházat/bevásárlás');
+});
+
+// A second real miss the user found was a sole proprietorship trading under
+// an individual's own name ("E.v." = egyéni vállalkozó) - personal data
+// about a real third party, same category of thing as counterpartyRules.js
+// already handles (an opaque id committed here, the real name only in the
+// gitignored counterpartyRules.local.js). This test exercises the same
+// mechanism with a fictional name, like counterpartyRules.test.js already
+// does, rather than referencing the real one.
+test('a counterparty-rule match for a sole-proprietorship-style name wins over keyword matching, same as any other counterparty override', () => {
+  const category = categorizeTransaction(
+    { description: 'VÁSÁRLÁS KÁRTYÁVAL Teszt Előd E.v.', counterparty: 'Teszt Előd E.v.', amount: -13548 },
+    { counterpartyRules: [{ names: ['teszt előd e.v.'], category: 'Szórakozás' }] },
+  );
+  assert.equal(category, 'Szórakozás');
+});
+
+// A third real unfamiliar-merchant miss: unlike the other two, the user's
+// real description for this one is literally just "One" with no prefix (the
+// existing 'simplep*one' keyword is for a different, SumUp-prefixed
+// reference format and doesn't match this). A bare "one" keyword would
+// false-positive-match as a substring anywhere (e.g. inside "vodafone") -
+// the ' one ' (space-padded) keyword added for this relies on
+// categorizeTransaction() already wrapping its search text in a
+// leading/trailing space, so it only matches "one" as its own whole word.
+test('a bare "One" description categorizes as Számlák/előfizetés', () => {
+  const category = categorizeTransaction({ description: 'One', amount: -4336 });
+  assert.equal(category, 'Számlák/előfizetés');
+});
+
+test('regression: "one" merely appearing inside another word (planted, fictional "Stonebridge Market") does not spuriously match the new whole-word keyword', () => {
+  const category = categorizeTransaction({ description: 'VÁSÁRLÁS KÁRTYÁVAL Stonebridge Market', amount: -3000 });
+  assert.equal(category, 'Egyéb'); // "st[one]bridge" contains "one" but not as its own word - must not match
+});
+
 test('a positive amount with no merchant-category match stays Bevétel', () => {
   const category = categorizeTransaction({ description: 'MUNKABÉR ÁTUTALÁS', amount: 350000 });
   assert.equal(category, 'Bevétel');

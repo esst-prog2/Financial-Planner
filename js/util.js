@@ -118,3 +118,50 @@ export function toIsoDate(value) {
 export function formatHuf(amount) {
   return Math.round(amount).toLocaleString('hu-HU');
 }
+
+// A stable per-transaction identity, for the transaction-deletion feature:
+// the same underlying bank row needs the same id wherever it gets parsed
+// again - a joint-account row is parsed twice (once inside buildLineItems
+// for the personal-view mirror, once directly for the joint view), and
+// both parses must land on the same id for a joint-view deletion to also
+// remove the mirrored entry from the personal view. Built from fields every
+// parsed transaction already carries (source+date+description+amount+
+// currency), plus an occurrence counter so two genuinely different but
+// identical-looking rows (e.g. the same coffee bought twice in one day)
+// still get distinct ids - counted in array order, which is the same order
+// both parses produce for the same sheet, so the Nth duplicate always lines
+// up with the Nth duplicate on the other side.
+export function assignTransactionIds(transactions) {
+  const seen = new Map();
+  return transactions.map((t) => {
+    const base = [t.source, t.date, t.description, t.amount, t.currency].join('\u0001');
+    const occurrence = (seen.get(base) || 0) + 1;
+    seen.set(base, occurrence);
+    return { ...t, id: `${base}\u0001${occurrence}` };
+  });
+}
+
+// Re-applies persisted deletions and amount adjustments (the "deduct one
+// transaction from another" feature) to a freshly parsed array, by id -
+// used both right after upload and after the user deducts an income
+// transaction from one or more expenses, since both need the exact same
+// drop-this / shrink-that logic. Works on either a raw parsed transaction
+// (`amount`) or a processed line item (`amountHuf`/`personalAmountHuf`),
+// touching whichever of those fields the object actually has.
+// `adjustments[id]` is a positive HUF figure meaning "this much has been
+// deducted from this transaction's magnitude" - added back so a -200000
+// expense with a 100000 adjustment reads as -100000, moving it toward
+// zero regardless of the transaction's own sign.
+export function applyTransactionOverrides(transactions, { deletedIds = new Set(), adjustments = {} } = {}) {
+  return transactions
+    .filter((t) => !deletedIds.has(t.id))
+    .map((t) => {
+      const delta = adjustments[t.id];
+      if (!delta) return t;
+      const adjusted = { ...t };
+      if ('amount' in adjusted) adjusted.amount += delta;
+      if ('amountHuf' in adjusted) adjusted.amountHuf += delta;
+      if ('personalAmountHuf' in adjusted) adjusted.personalAmountHuf += delta;
+      return adjusted;
+    });
+}

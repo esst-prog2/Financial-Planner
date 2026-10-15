@@ -1,4 +1,4 @@
-import { buildColumnIndex, assertColumns, isBlankRow, toNumber, toIsoDate, MissingColumnError } from './util.js';
+import { buildColumnIndex, assertColumns, isBlankRow, toNumber, toIsoDate, MissingColumnError, assignTransactionIds } from './util.js';
 
 // The real OTP "Számlatörténet" export always has a 14-row report-header
 // block (account number, query timestamp, filter conditions) before the
@@ -23,20 +23,22 @@ export function parseOtpSheet(rows) {
   const descriptionColumns = DESCRIPTION_COLUMNS.filter((c) => c in columnIndex);
   const dataRows = rows.slice(HEADER_ROW_INDEX + 1).filter((row) => !isBlankRow(row));
 
-  return dataRows.map((row) => {
-    const description = descriptionColumns
-      .map((c) => row[columnIndex[c]])
-      .filter((v) => v !== undefined && v !== null && String(v).trim() !== '')
-      .join(' ');
+  return assignTransactionIds(
+    dataRows.map((row) => {
+      const description = descriptionColumns
+        .map((c) => row[columnIndex[c]])
+        .filter((v) => v !== undefined && v !== null && String(v).trim() !== '')
+        .join(' ');
 
-    return {
-      source: 'otp',
-      date: toIsoDate(row[columnIndex[dateColumn]]),
-      description,
-      counterparty: columnIndex['Ellenoldali név'] !== undefined ? String(row[columnIndex['Ellenoldali név']] || '').trim() : '',
-      amount: toNumber(row[columnIndex['Összeg']]),
-      currency: String(row[columnIndex['Devizanem']] || 'HUF').trim(),
-      fee: 0,
-    };
-  });
+      return {
+        source: 'otp',
+        date: toIsoDate(row[columnIndex[dateColumn]]),
+        description,
+        counterparty: columnIndex['Ellenoldali név'] !== undefined ? String(row[columnIndex['Ellenoldali név']] || '').trim() : '',
+        amount: toNumber(row[columnIndex['Összeg']]),
+        currency: String(row[columnIndex['Devizanem']] || 'HUF').trim(),
+        fee: 0,
+      };
+    }),
+  );
 }

@@ -204,12 +204,274 @@ nav#view-switch button.active {
   margin-bottom: var(--gap);
 }
 
+#income-pie-split {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--gap);
+  align-items: start;
+}
+
+#income-pie-left .card:last-child {
+  margin-bottom: 0;
+}
+
+#deduction-history {
+  margin-bottom: var(--gap);
+  position: sticky;
+  top: var(--gap);
+}
+
+@media (max-width: 760px) {
+  #income-pie-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.deduction-group {
+  margin-bottom: 0.9rem;
+}
+
+.deduction-group:last-child {
+  margin-bottom: 0;
+}
+
+.deduction-group h4 {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pink-700);
+}
+
+.deduction-original {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.deduction-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.deduction-group li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  padding: 0.15rem 0 0.15rem 0.75rem;
+  border-left: 2px solid var(--pink-200);
+}
+
+.deduction-undo {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  opacity: 0.6;
+}
+
+.deduction-undo:hover {
+  opacity: 1;
+  background: var(--pink-50);
+}
+
+#deduction-history-rows p {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
 #error-message {
   color: #a13a4a;
   background: var(--pink-50);
   border: 1px solid var(--pink-300);
   border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
+}
+
+.tx-select {
+  margin-right: 0.4rem;
+  accent-color: var(--pink-500);
+  vertical-align: middle;
+}
+
+.row-detail li label {
+  cursor: pointer;
+}
+
+#delete-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 0.6rem;
+}
+
+#delete-bar button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem 1.6rem;
+  border: none;
+  background: var(--pink-700);
+  color: white;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+}
+
+#delete-bar button:hover {
+  background: var(--pink-500);
+}
+
+#allocate-selected,
+#clear-selection {
+  background: white !important;
+  color: var(--pink-700) !important;
+  border: 1px solid var(--pink-300) !important;
+}
+
+#allocate-selected:hover,
+#clear-selection:hover {
+  background: var(--pink-50) !important;
+}
+
+#allocation-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 11;
+  width: min(92vw, 480px);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.allocation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--pink-100);
+}
+
+.allocation-row span {
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.allocation-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.allocation-amount-input {
+  width: 6.5rem;
+  font: inherit;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--pink-200);
+  border-radius: var(--radius-pill);
+  text-align: right;
+}
+
+.allocation-quick {
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--pink-200);
+  background: var(--pink-50);
+  color: var(--pink-700);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.allocation-quick:hover {
+  background: var(--pink-100);
+}
+
+.allocation-pct-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.allocation-pct-input {
+  width: 3.2rem;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--pink-200);
+  border-radius: var(--radius-pill);
+  text-align: right;
+}
+
+.allocation-quick-pct {
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--pink-300);
+  background: var(--pink-100);
+  color: var(--pink-700);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.allocation-quick-pct:hover {
+  background: var(--pink-200);
+}
+
+#allocation-remaining {
+  font-weight: 600;
+  color: var(--pink-700);
+}
+
+#allocation-remaining.over-allocated {
+  color: #a13a4a;
+}
+
+#allocation-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+#allocation-actions button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+#allocation-apply {
+  border: none;
+  background: var(--pink-700);
+  color: white;
+}
+
+#allocation-apply:disabled {
+  background: var(--pink-200);
+  cursor: not-allowed;
+}
+
+#allocation-cancel {
+  border: 1px solid var(--pink-300);
+  background: white;
+  color: var(--pink-700);
 }
 
 canvas {
@@ -235,8 +497,6 @@ canvas {
 }
 
 #income-sources,
-#category-transactions ul,
-#joint-category-transactions ul,
 #joint-contributors ul {
   list-style: none;
   padding: 0;
@@ -286,8 +546,46 @@ canvas {
   margin-top: 0.75rem;
 }
 
-#category-transactions li,
-#joint-category-transactions li {
-  padding: 0.3rem 0;
+#category-transactions table,
+#joint-category-transactions table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+#category-transactions th,
+#joint-category-transactions th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--pink-700);
+  padding: 0.3rem 0.5rem;
+  border-bottom: 2px solid var(--pink-200);
+}
+
+#category-transactions td,
+#joint-category-transactions td {
+  padding: 0.3rem 0.5rem;
   border-bottom: 1px dashed var(--pink-100);
+}
+
+#category-transactions td:last-child,
+#joint-category-transactions td:last-child,
+#category-transactions th:last-child,
+#joint-category-transactions th:last-child {
+  text-align: right;
+}
+
+/* Date (2nd column) and amount (last column) always fit on one line; only
+   the description (3rd column) wraps when it's too long. */
+#category-transactions td:nth-child(2),
+#joint-category-transactions td:nth-child(2),
+#category-transactions td:last-child,
+#joint-category-transactions td:last-child {
+  white-space: nowrap;
+}
+
+#category-transactions td:nth-child(3),
+#joint-category-transactions td:nth-child(3) {
+  white-space: normal;
+  word-break: break-word;
 }

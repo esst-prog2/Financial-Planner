@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLineItems, monthOf } from '../js/pipeline.js';
+import { parseRevolutSheet } from '../js/parseRevolut.js';
 import { RATE_TABLES } from '../js/rates.js';
 
 const OTP_HEADER = ['Számlaszám', 'Ellenoldali számla', 'Ellenoldali név', 'Forgalom típusa', 'Közlemény', 'Tranzakció kategória', 'Banki azonosító', 'Tranzakció idő', 'Könyvelt', 'Összeg', 'Devizanem'];
@@ -67,6 +68,23 @@ test('full pipeline: parses, excludes self-transfers and contributions, categori
   const fee = items.find((i) => i.isFee && i.description === 'Gyn Obs');
   assert.equal(fee.category, 'Egyéb');
   assert.equal(fee.amountHuf, -(0.13 * eurRate));
+});
+
+test('a joint-sourced line item gets the same id the joint view gets for the same row, so a deletion can find both sides', () => {
+  const s = sheets();
+  const items = buildLineItems(s, { ownerName: 'Fikció Hanna' });
+  const jointRaw = parseRevolutSheet(s['rev-joint'], 'revolut-joint');
+
+  const jointGrocery = items.find((i) => i.description === 'SPAR Food & Fuel');
+  const jointGroceryRaw = jointRaw.find((t) => t.description === 'SPAR Food & Fuel');
+  assert.ok(jointGrocery.id);
+  assert.equal(jointGrocery.id, jointGroceryRaw.id);
+
+  // The excluded joint contribution-in row doesn't make it into items at
+  // all, but the joint view's own list still has it under the same id
+  // scheme - nothing here claims otherwise, this just documents that the
+  // id match above is specific to rows that actually survive both sides.
+  assert.ok(jointRaw.find((t) => t.description === 'Átutalás tőle: T TIBI').id);
 });
 
 test('OTP piggy-bank (persely) sub-account: excluded entirely, both signs', () => {

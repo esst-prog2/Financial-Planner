@@ -35,6 +35,10 @@ export function buildLineItems(sheets, { ownerName } = {}) {
     if (feeHuf) {
       const amountHuf = -Math.abs(feeHuf);
       lineItems.push({
+        // A fee line is a second, independently-deletable row carved out of
+        // the same raw transaction - suffixed so it never collides with the
+        // main line item's own id below.
+        id: `${t.id}:fee`,
         source: t.source,
         date: t.date,
         description: t.description,
@@ -84,6 +88,11 @@ export function buildLineItems(sheets, { ownerName } = {}) {
 
     const amountHuf = toHuf(t.amount, t.currency, t.date);
     lineItems.push({
+      // Same id the raw transaction got at parse time - for a joint-sourced
+      // row, this matches the id its mirror entry gets in the joint view's
+      // own (separately parsed) list, which is what lets a deletion in one
+      // view find and remove the same row in the other.
+      id: t.id,
       source: t.source,
       date: t.date,
       description: t.description,
