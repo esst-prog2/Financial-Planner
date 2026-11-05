@@ -7,7 +7,13 @@
 export const SPENDING_CATEGORY_KEYWORDS = [
   {
     category: 'Élelmiszer',
-    keywords: ['lidl', 'spar', 'aldi', 'tesco', 'penny', 'coop', 'pékség', 'bakery', 'pék', 'szerelmes lev'],
+    keywords: [
+      'lidl', 'spar', 'aldi', 'tesco', 'penny', 'coop', 'pékség', 'bakery', 'pék', 'szerelmes lev',
+      // 'cukrászda' (confectionery/pastry shop) treated the same as a bakery -
+      // a sweets purchase, not a sit-down meal - consistent with the existing
+      // "bakery-type merchant is Élelmiszer, not Eating out" decision.
+      'cukrászda', 'jókenyér',
+    ],
   },
   {
     category: 'Eating out',
@@ -15,6 +21,10 @@ export const SPENDING_CATEGORY_KEYWORDS = [
       'mcd', 'kfc', 'wokbar', 'wok', 'cafe', 'café', 'kávé', 'sörműhely', 'sörház', 'sörművház',
       'rétesház', 'étterem', 'pizzé', 'pizza', 'burger', 'bisztro', 'foodora', 'pho', 'ristorante',
       'knorr-bremse', 'my green cup', 'cocacola', 'jonoyogo', 'lágymányos', 'bellozzo',
+      // 'bistro' (English spelling) is a separate entry from 'bisztro' above -
+      // a real merchant used the English spelling, which the Hungarian form
+      // doesn't match as a substring.
+      'bistro', 'sushi', 'soup house', 'munch',
     ],
   },
   {
@@ -22,7 +32,7 @@ export const SPENDING_CATEGORY_KEYWORDS = [
     keywords: [
       'bershka', 'stradivarius', 'zara', 'h&m', 'ruházat', 'tienda', 'decathlon', 'reserved',
       'istyle', 'pirex', 'mango', 'arena', 'calzedonia', 'lush', "women's secret", 'primark',
-      'tezenis', 'new garden', 'tchibo', 'sportshop', 'mountex',
+      'tezenis', 'new garden', 'tchibo', 'sportshop', 'mountex', 'pepco', 'praktiker',
     ],
   },
   {
