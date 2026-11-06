@@ -8,6 +8,7 @@ import { categoryColor } from './categoryColors.js';
 import { normalizeNameForGrouping } from './util.js';
 import { DEFAULT_LANGUAGE, t, categoryLabel, summaryLines, missingSheetMessage, genericErrorMessage, recoveryNoticeMessage } from './i18n.js';
 import { loadPreferences, savePreferences, loadCorruptedBackup, clearCorruptedBackup } from './preferences.js';
+import { computeOriginalAmount, applyDeduction, undoDeduction } from './deductions.js';
 
 const SHEET_NAMES = ['otp', 'rev-eur', 'rev-hu', 'rev-joint'];
 const ALL_CATEGORIES = [...SPENDING_CATEGORIES, ...NON_SPENDING_CATEGORIES.filter((c) => c !== 'Bevétel')];
@@ -414,12 +415,13 @@ function findTransactionById(id) {
 // targeted the same expense over time - used both by the deduction-history
 // panel's "Eredeti összeg" line and by the allocation panel's %-of-original
 // quick-fill, which must compute against this, not against whatever
-// happens to remain after earlier deductions.
+// happens to remain after earlier deductions. Thin DOM-state wrapper
+// around the pure computeOriginalAmount() in deductions.js, which carries
+// the actual arithmetic (and its own tests).
 function originalAmountForExpense(expenseId) {
   const current = findTransactionById(expenseId);
   const remaining = Math.round(Math.abs(current?.amount ?? 0));
-  const totalDeducted = deductionHistory.filter((e) => e.expenseId === expenseId).reduce((sum, e) => sum + e.amount, 0);
-  return remaining + totalDeducted;
+  return computeOriginalAmount(remaining, deductionHistory, expenseId);
 }
 
 // Adds a legend label (with that category's percentage of the pie's total
@@ -699,30 +701,18 @@ function migrateLegacyDeductionEntries() {
 }
 
 // Reverses exactly one logged deduction, leaving every other entry (even
-// ones from the same income or against the same expense) untouched: adds
-// the entry's amount back to the expense (shrinks its stored adjustment),
-// then recomputes the income's own state from whatever entries still
-// reference it after this one is removed - fully restoring it if none are
-// left, or leaving it as a smaller genuine income if some still are (the
-// same income may have funded several expenses in one action; undoing just
-// one of those should only give back that one's share, not the whole
-// thing).
+// ones from the same income or against the same expense) untouched - see
+// undoDeduction in deductions.js for the actual bookkeeping (restores the
+// expense fully, and the income fully if no other entry still draws from
+// it, or leaves it as a smaller genuine income otherwise). This wrapper
+// just threads module state through that pure function and persists/
+// re-renders the result.
 function undoDeductionEntry(entryId) {
-  const entry = deductionHistory.find((e) => e.id === entryId);
-  if (!entry) return;
+  const result = undoDeduction({ deductionHistory, transactionAdjustments, deletedTransactionIds }, entryId);
+  if (result.deductionHistory === deductionHistory) return; // no matching entry - nothing changed
 
-  deductionHistory = deductionHistory.filter((e) => e.id !== entryId);
-  savePreferences({ deductionHistory });
-
-  transactionAdjustments[entry.expenseId] = (transactionAdjustments[entry.expenseId] || 0) - entry.amount;
-  if (!transactionAdjustments[entry.expenseId]) delete transactionAdjustments[entry.expenseId];
-
-  deletedTransactionIds.delete(entry.incomeId);
-  const stillAllocated = deductionHistory.filter((e) => e.incomeId === entry.incomeId).reduce((sum, e) => sum + e.amount, 0);
-  if (stillAllocated > 0) transactionAdjustments[entry.incomeId] = -stillAllocated;
-  else delete transactionAdjustments[entry.incomeId];
-
-  savePreferences({ deletedTransactionIds: [...deletedTransactionIds], transactionAdjustments });
+  ({ deductionHistory, transactionAdjustments, deletedTransactionIds } = result);
+  savePreferences({ deductionHistory, transactionAdjustments, deletedTransactionIds: [...deletedTransactionIds] });
   recomputeState();
   afterTransactionsChanged();
 }
@@ -1158,48 +1148,26 @@ allocationCancelButton.addEventListener('click', () => {
 allocationApplyButton.addEventListener('click', () => {
   if (allocationApplyButton.disabled) return;
   const income = findTransactionById(allocationIncomeId);
-  const incomeTotal = Math.round(Math.abs(income.amount));
+  const incomeAmount = Math.round(Math.abs(income.amount));
 
-  // newLogEntries is the human-readable side of this action, for the
-  // deduction-history panel - "which expense this came out of, and what
-  // came out of it" - each one carries incomeId (not just the income's
-  // description text) and its own id, both needed to undo that specific
-  // entry later without touching any other deduction.
-  const newLogEntries = [];
-  let totalAllocated = 0;
-  for (const row of allocationRowsEl.querySelectorAll('.allocation-row')) {
+  // Read each row's own input - applyDeduction (deductions.js) does the
+  // actual bookkeeping (which rows count, the fully-used-up vs. partial
+  // split, the log entries) and carries its own tests, including the
+  // exact scenario the teacher's HW6 feedback asked for.
+  const allocations = [...allocationRowsEl.querySelectorAll('.allocation-row')].map((row) => {
     const expenseId = row.dataset.expenseId;
-    const amount = Number(row.querySelector('.allocation-amount-input').value) || 0;
-    if (amount <= 0) continue;
-    totalAllocated += amount;
-    transactionAdjustments[expenseId] = (transactionAdjustments[expenseId] || 0) + amount;
-    const expense = findTransactionById(expenseId);
-    newLogEntries.push({
-      id: crypto.randomUUID(),
+    return {
       expenseId,
-      expenseDescription: expense?.description,
-      incomeId: allocationIncomeId,
-      incomeDescription: income.description,
-      amount,
-    });
-  }
-  deductionHistory = [...deductionHistory, ...newLogEntries];
-  savePreferences({ deductionHistory });
+      expenseDescription: findTransactionById(expenseId)?.description,
+      amount: Number(row.querySelector('.allocation-amount-input').value) || 0,
+    };
+  });
 
-  if (totalAllocated >= incomeTotal) {
-    // Fully used up (validation already blocks allocating more than the
-    // income has) - remove it the same way plain delete does.
-    deletedTransactionIds.add(allocationIncomeId);
-    savePreferences({ deletedTransactionIds: [...deletedTransactionIds] });
-  } else {
-    // Only partially used - shrink the income by what got deducted from
-    // it, rather than deleting it; it's still genuine income for the
-    // remainder. A negative delta on a positive amount moves it toward
-    // zero, the same "toward zero" rule applyTransactionOverrides already
-    // uses for an expense's positive delta.
-    transactionAdjustments[allocationIncomeId] = (transactionAdjustments[allocationIncomeId] || 0) - totalAllocated;
-  }
-  savePreferences({ transactionAdjustments });
+  ({ deductionHistory, transactionAdjustments, deletedTransactionIds } = applyDeduction(
+    { deductionHistory, transactionAdjustments, deletedTransactionIds },
+    { incomeId: allocationIncomeId, incomeDescription: income.description, incomeAmount, allocations },
+  ));
+  savePreferences({ deductionHistory, transactionAdjustments, deletedTransactionIds: [...deletedTransactionIds] });
 
   recomputeState();
   afterTransactionsChanged();
