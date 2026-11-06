@@ -282,9 +282,12 @@ function renderJointMonthOptions(items) {
 
 function renderSummary() {
   const month = monthSelect.value;
-  const { income, spending, balance } = monthlySummary(state.items, month);
-  summaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance })
-    .map(({ label, amount }) => `<li>${label}: ${formatHuf(amount)} HUF</li>`)
+  const { income, spending, balance, savings } = monthlySummary(state.items, month);
+  // Same rounding convention as withPercentages() below (one decimal
+  // place); 0% rather than a division error when there's no income yet.
+  const savingsPercent = income > 0 ? Math.round((savings / income) * 1000) / 10 : 0;
+  summaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance, savings, savingsPercent })
+    .map(({ label, amount, percent }) => `<li>${label}: ${formatHuf(amount)} HUF${percent !== undefined ? ` (${percent}%)` : ''}</li>`)
     .join('');
 }
 

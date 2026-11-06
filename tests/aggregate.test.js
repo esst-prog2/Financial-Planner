@@ -96,6 +96,37 @@ test('monthlySummary: a refund reduces total spending instead of adding to it', 
   assert.equal(summary.balance, 345000);
 });
 
+test('monthlySummary: savings is the signed sum of Megtakarítás line items for the month, shown as a positive magnitude', () => {
+  const items = [
+    item({ category: 'Megtakarítás', personalAmountHuf: -20000 }),
+    item({ category: 'Megtakarítás', personalAmountHuf: -5000 }),
+    item({ category: 'Élelmiszer', personalAmountHuf: -3000 }),
+  ];
+  const summary = monthlySummary(items, '2026-09');
+  assert.equal(summary.savings, 25000);
+});
+
+test('monthlySummary: a Megtakarítás withdrawal reduces the displayed savings total', () => {
+  const items = [item({ category: 'Megtakarítás', personalAmountHuf: -20000 }), item({ category: 'Megtakarítás', personalAmountHuf: 6000 })];
+  const summary = monthlySummary(items, '2026-09');
+  assert.equal(summary.savings, 14000);
+});
+
+test('monthlySummary: a month with no net savings shows 0, not a negative figure', () => {
+  const nets_to_zero = monthlySummary([item({ category: 'Megtakarítás', personalAmountHuf: -5000 }), item({ category: 'Megtakarítás', personalAmountHuf: 5000 })], '2026-09');
+  assert.equal(nets_to_zero.savings, 0);
+  const nets_positive = monthlySummary([item({ category: 'Megtakarítás', personalAmountHuf: -5000 }), item({ category: 'Megtakarítás', personalAmountHuf: 9000 })], '2026-09');
+  assert.equal(nets_positive.savings, 0);
+  const none = monthlySummary([item({ category: 'Élelmiszer', personalAmountHuf: -5000 })], '2026-09');
+  assert.equal(none.savings, 0);
+});
+
+test('monthlySummary with jointOnly also computes savings from full joint amounts', () => {
+  const items = [item({ source: 'revolut-joint', category: 'Megtakarítás', personalAmountHuf: -4000, amountHuf: -8000 })];
+  const summary = monthlySummary(items, '2026-09', { jointOnly: true });
+  assert.equal(summary.savings, 8000);
+});
+
 test('monthlySummary with jointOnly uses full (unhalved) joint amounts, ignoring non-joint items', () => {
   const items = [
     item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 }),

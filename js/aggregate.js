@@ -46,14 +46,19 @@ export function pieEligibleRows(totals) {
 export function monthlySummary(items, month, { jointOnly = false } = {}) {
   let income = 0;
   let netSpending = 0;
+  let netSavings = 0;
   for (const item of items) {
     if (jointOnly && item.source !== 'revolut-joint') continue;
     if (monthOf(item.date) !== month) continue;
     const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
     if (item.category === 'Bevétel') income += amount;
     else netSpending += amount;
+    if (item.category === 'Megtakarítás') netSavings += amount;
   }
-  return { income, spending: Math.abs(netSpending), balance: income + netSpending };
+  // Same netting convention as categoryTotals/pieEligibleRows: a category
+  // that nets to zero or positive (a withdrawal month) has nothing to show
+  // as spending, so it displays 0 rather than a negative figure.
+  return { income, spending: Math.abs(netSpending), balance: income + netSpending, savings: Math.max(0, -netSavings) };
 }
 
 // categories: null means "every category"; otherwise a Set of category

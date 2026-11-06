@@ -17,6 +17,7 @@ export const STRINGS = {
   summaryIncomeLabel: { hu: 'Bevétel', en: 'Income' },
   summarySpendingLabel: { hu: 'Kiadás', en: 'Spending' },
   summaryBalanceLabel: { hu: 'Különbözet', en: 'Balance' },
+  summarySavingsLabel: { hu: 'Megtakarítás', en: 'Savings' },
   incomeHeading: { hu: 'Bevétel forrásonként', en: 'Income by source' },
   categoryPieHeading: { hu: 'Kategória szerinti bontás', en: 'Spending by category' },
   monthlyTrendHeading: { hu: 'Havi trend', en: 'Monthly trend' },
@@ -84,13 +85,21 @@ export function categoryLabel(category, lang) {
 
 // One line per figure, in a fixed order (income, then spending, then the
 // difference) - rendered as a bulleted list rather than one flowing
-// sentence.
-export function summaryLines(lang, { spending, income, balance }) {
-  return [
-    { label: t('summaryIncomeLabel', lang), amount: income },
-    { label: t('summarySpendingLabel', lang), amount: spending },
-    { label: t('summaryBalanceLabel', lang), amount: balance },
-  ];
+// sentence. `savings`, if given, inserts a line right after income (the
+// month's Megtakarítás total) - the personal view's own summary passes it,
+// the joint view's doesn't, so omitting it keeps the existing three-line
+// result unchanged there. `savingsPercent`, if also given, attaches a
+// `percent` field to that line only (its share of the income line above
+// it) - the other three lines never carry a `percent` field.
+export function summaryLines(lang, { spending, income, balance, savings, savingsPercent }) {
+  const lines = [{ label: t('summaryIncomeLabel', lang), amount: income }];
+  if (savings !== undefined) {
+    const savingsLine = { label: t('summarySavingsLabel', lang), amount: savings };
+    if (savingsPercent !== undefined) savingsLine.percent = savingsPercent;
+    lines.push(savingsLine);
+  }
+  lines.push({ label: t('summarySpendingLabel', lang), amount: spending }, { label: t('summaryBalanceLabel', lang), amount: balance });
+  return lines;
 }
 
 export function missingSheetMessage(sheetName, lang) {
