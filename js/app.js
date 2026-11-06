@@ -19,6 +19,7 @@ const viewSwitch = document.getElementById('view-switch');
 const monthBar = document.getElementById('month-bar');
 const monthSelect = document.getElementById('month-select');
 const summaryTextEl = document.getElementById('summary-text');
+const jointSummaryTextEl = document.getElementById('joint-summary-text');
 const categoryFilterList = document.getElementById('category-filter-list');
 const categoryFilterSelectAll = document.getElementById('category-filter-select-all');
 const categoryTransactions = document.getElementById('category-transactions');
@@ -44,6 +45,7 @@ const allocationRemainingEl = document.getElementById('allocation-remaining');
 const allocationApplyButton = document.getElementById('allocation-apply');
 const allocationCancelButton = document.getElementById('allocation-cancel');
 const deductionHistoryRowsEl = document.getElementById('deduction-history-rows');
+const jointDeductionHistoryRowsEl = document.getElementById('joint-deduction-history-rows');
 const recoveryNotice = document.getElementById('recovery-notice');
 const exportCorrectionsButton = document.getElementById('export-corrections');
 const importCorrectionsInput = document.getElementById('import-corrections');
@@ -286,6 +288,18 @@ function renderSummary() {
     .join('');
 }
 
+// The joint view's equivalent of renderSummary(), using full (unhalved)
+// joint amounts - see monthlySummary's jointOnly option in aggregate.js -
+// consistent with the joint pie/trend charts, which already show full
+// amounts rather than the personal view's halved ones.
+function renderJointSummary() {
+  const month = jointMonthSelect.value;
+  const { income, spending, balance } = monthlySummary(state.items, month, { jointOnly: true });
+  jointSummaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance })
+    .map(({ label, amount }) => `<li>${label}: ${formatHuf(amount)} HUF</li>`)
+    .join('');
+}
+
 function renderIncomeBySource() {
   const month = monthSelect.value;
   const rows = incomeBySource(state.items, month);
@@ -387,7 +401,7 @@ function findTransactionById(id) {
   const found = state.items.find((i) => i.id === id) || state.jointRaw.find((t) => t.id === id);
   if (!found) return null;
   const amount = found.amountHuf ?? found.personalAmountHuf ?? found.amount;
-  return { id, description: found.description || t('noDescription', lang), amount, date: found.date };
+  return { id, description: found.description || t('noDescription', lang), amount, date: found.date, source: found.source };
 }
 
 // An expense's full magnitude before any deduction ever chipped away at
@@ -573,9 +587,11 @@ function renderJointIncome() {
 }
 
 function renderJointView() {
+  renderJointSummary();
   renderJointCategoryPie();
   renderJointMonthlyBar();
   renderJointIncome();
+  renderDeductionHistory({ month: jointMonthSelect.value, container: jointDeductionHistoryRowsEl, jointOnly: true });
 }
 
 // Toggles a clicked row's individual transactions - date order - open or
@@ -592,11 +608,18 @@ function toggleJointIncomeDetail(row, key, month) {
 // deductions listed underneath it (insertion order, so oldest-first within
 // a group) - the shape the user asked for: "always which item I deducted
 // from, and below it, what I deducted."
-// Scoped to the selected month, like every other personal-view content -
-// grouped by (and filtered on) the month the deducted-from EXPENSE itself
-// falls in, not the month the deduction action happened to be made in.
-function renderDeductionHistory() {
-  const month = monthSelect.value;
+// Scoped to `month`, like every other personal/joint-view content - grouped
+// by (and filtered on) the month the deducted-from EXPENSE itself falls in,
+// not the month the deduction action happened to be made in. `jointOnly`
+// scopes the whole panel to only joint-sourced expenses (the joint view's
+// own panel) or only non-joint-sourced ones (the personal view's) - see
+// preferences-corruption-recovery... no, see
+// joint-view-summary-and-deductions for why these two panels are split by
+// source rather than both showing every deduction: previously every
+// deduction showed in the one personal-view panel regardless of source,
+// which meant a joint deduction was invisible from the joint view entirely
+// and could appear mixed into the personal panel.
+function renderDeductionHistory({ month, container, jointOnly }) {
   const groups = new Map();
   for (const entry of deductionHistory) {
     if (!groups.has(entry.expenseId)) groups.set(entry.expenseId, { description: entry.expenseDescription, entries: [] });
@@ -611,20 +634,21 @@ function renderDeductionHistory() {
       const originalAmount = originalAmountForExpense(expenseId);
       const totalDeducted = entries.reduce((sum, e) => sum + e.amount, 0);
       const deductedPct = originalAmount > 0 ? Math.round((totalDeducted / originalAmount) * 1000) / 10 : 0;
-      return { description, entries, originalAmount, remaining, deductedPct, date: current?.date };
+      return { description, entries, originalAmount, remaining, deductedPct, date: current?.date, isJoint: current?.source === 'revolut-joint' };
     })
     // Once an expense has been fully deducted away (nothing left of it, or
     // it's gone entirely - e.g. separately deleted), it drops out of this
     // panel rather than lingering at 0. Also drops anything whose expense
-    // isn't in the currently-selected month.
-    .filter((g) => g.remaining > 0 && monthOf(g.date) === month);
+    // isn't in the currently-selected month, or doesn't belong to this
+    // panel's source (personal vs. joint).
+    .filter((g) => g.remaining > 0 && monthOf(g.date) === month && g.isJoint === jointOnly);
 
   if (!visibleGroups.length) {
-    deductionHistoryRowsEl.innerHTML = `<p>${t('deductionHistoryEmpty', lang)}</p>`;
+    container.innerHTML = `<p>${t('deductionHistoryEmpty', lang)}</p>`;
     return;
   }
 
-  deductionHistoryRowsEl.innerHTML = visibleGroups
+  container.innerHTML = visibleGroups
     .map(
       ({ description, entries, originalAmount, deductedPct }) =>
         `<div class="deduction-group"><h4>${description || t('noDescription', lang)}</h4>` +
@@ -706,6 +730,12 @@ deductionHistoryRowsEl.addEventListener('click', (event) => {
   undoDeductionEntry(undoButton.dataset.entryId);
 });
 
+jointDeductionHistoryRowsEl.addEventListener('click', (event) => {
+  const undoButton = event.target.closest('.deduction-undo');
+  if (!undoButton) return;
+  undoDeductionEntry(undoButton.dataset.entryId);
+});
+
 // The out-of-browser half of preferences-corruption-recovery: unlike the
 // automatic backup (which lives in localStorage and disappears along with
 // it in a full storage wipe), a downloaded file survives that - the only
@@ -751,7 +781,7 @@ function renderAll() {
   renderIncomeBySource();
   renderCategoryPie();
   renderMonthlyBar();
-  renderDeductionHistory();
+  renderDeductionHistory({ month: monthSelect.value, container: deductionHistoryRowsEl, jointOnly: false });
   // renderJointView() is intentionally not called here: Chart.js sizes a
   // canvas from its container's layout box at creation time, and the
   // joint-view section starts out hidden (display: none), so a chart
@@ -837,7 +867,7 @@ monthSelect.addEventListener('change', () => {
   renderSummary();
   renderIncomeBySource();
   renderCategoryPie();
-  renderDeductionHistory();
+  renderDeductionHistory({ month: monthSelect.value, container: deductionHistoryRowsEl, jointOnly: false });
   // A previously-clicked category's transaction list is now stale (it was
   // for the old month) - clear it rather than leave it showing until the
   // user happens to click a slice again.
@@ -891,8 +921,10 @@ jointCategoryFilterSelectAll.addEventListener('change', () => {
   renderJointMonthlyBar();
 });
 jointMonthSelect.addEventListener('change', () => {
+  renderJointSummary();
   renderJointCategoryPie();
   renderJointIncome();
+  renderDeductionHistory({ month: jointMonthSelect.value, container: jointDeductionHistoryRowsEl, jointOnly: true });
   clearDetailContainer(jointCategoryTransactions);
   clearDetailContainer(jointMonthlyBarTransactions);
   savePreferences({ lastMonth: jointMonthSelect.value });

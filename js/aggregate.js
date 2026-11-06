@@ -40,13 +40,18 @@ export function pieEligibleRows(totals) {
     .sort((a, b) => b.value - a.value);
 }
 
-export function monthlySummary(items, month) {
+// jointOnly: true scopes to revolut-joint items using their full (unhalved)
+// amountHuf - the joint view's own summary - instead of personalAmountHuf
+// across every source, same convention as categoryTotals/monthlyTrend above.
+export function monthlySummary(items, month, { jointOnly = false } = {}) {
   let income = 0;
   let netSpending = 0;
   for (const item of items) {
+    if (jointOnly && item.source !== 'revolut-joint') continue;
     if (monthOf(item.date) !== month) continue;
-    if (item.category === 'Bevétel') income += item.personalAmountHuf;
-    else netSpending += item.personalAmountHuf;
+    const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
+    if (item.category === 'Bevétel') income += amount;
+    else netSpending += amount;
   }
   return { income, spending: Math.abs(netSpending), balance: income + netSpending };
 }

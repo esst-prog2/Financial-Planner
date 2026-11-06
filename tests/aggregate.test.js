@@ -96,6 +96,33 @@ test('monthlySummary: a refund reduces total spending instead of adding to it', 
   assert.equal(summary.balance, 345000);
 });
 
+test('monthlySummary with jointOnly uses full (unhalved) joint amounts, ignoring non-joint items', () => {
+  const items = [
+    item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 }),
+    item({ source: 'otp', personalAmountHuf: -5000, amountHuf: -5000 }),
+    item({ source: 'revolut-joint', category: 'Bevétel', personalAmountHuf: 60000, amountHuf: 120000 }),
+  ];
+  const summary = monthlySummary(items, '2026-09', { jointOnly: true });
+  assert.equal(summary.spending, 8000);
+  assert.equal(summary.income, 120000);
+  assert.equal(summary.balance, 112000);
+});
+
+test('monthlySummary with jointOnly: a refund reduces joint total spending instead of adding to it', () => {
+  const items = [
+    item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 }),
+    item({ source: 'revolut-joint', personalAmountHuf: 1500, amountHuf: 3000 }),
+  ];
+  const summary = monthlySummary(items, '2026-09', { jointOnly: true });
+  assert.equal(summary.spending, 5000);
+});
+
+test('monthlySummary without jointOnly is unaffected by joint-sourced items (existing personal behavior unchanged)', () => {
+  const items = [item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 })];
+  const summary = monthlySummary(items, '2026-09');
+  assert.equal(summary.spending, 4000);
+});
+
 test('monthlyTrend nets per month rather than summing absolute values', () => {
   const items = [
     item({ date: '2026-08-05', personalAmountHuf: -4000 }),

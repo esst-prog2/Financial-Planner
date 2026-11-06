@@ -204,14 +204,16 @@ nav#view-switch button.active {
   margin-bottom: var(--gap);
 }
 
-#income-deduction-split {
+#income-deduction-split,
+#joint-income-deduction-split {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--gap);
   align-items: start;
 }
 
-#deduction-history {
+#deduction-history,
+#joint-deduction-history {
   margin-bottom: var(--gap);
   position: sticky;
   top: var(--gap);
@@ -284,7 +286,8 @@ nav#view-switch button.active {
 }
 
 @media (max-width: 760px) {
-  #income-deduction-split {
+  #income-deduction-split,
+  #joint-income-deduction-split {
     grid-template-columns: 1fr;
   }
 
@@ -349,7 +352,8 @@ nav#view-switch button.active {
   background: var(--pink-50);
 }
 
-#deduction-history-rows p {
+#deduction-history-rows p,
+#joint-deduction-history-rows p {
   font-size: 0.85rem;
   color: var(--ink-soft);
   margin: 0;
@@ -553,12 +557,14 @@ canvas {
   max-height: 360px;
 }
 
-#summary-text {
+#summary-text,
+#joint-summary-text {
   margin: 0;
   padding-left: 1.25rem;
 }
 
-#summary-text li {
+#summary-text li,
+#joint-summary-text li {
   padding: 0.2rem 0;
   font-size: 1.05rem;
 }

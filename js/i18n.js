@@ -13,6 +13,7 @@ export const STRINGS = {
   navPersonal: { hu: 'Személyes áttekintő', en: 'Personal overview' },
   navJoint: { hu: 'Közös számla', en: 'Joint account' },
   summaryHeading: { hu: 'Havi összesítő', en: 'Monthly summary' },
+  jointSummaryHeading: { hu: 'Közös számla - havi összesítő', en: 'Joint account - monthly summary' },
   summaryIncomeLabel: { hu: 'Bevétel', en: 'Income' },
   summarySpendingLabel: { hu: 'Kiadás', en: 'Spending' },
   summaryBalanceLabel: { hu: 'Különbözet', en: 'Balance' },
