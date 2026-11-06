@@ -1,13 +1,13 @@
 import { buildLineItems, monthOf } from './pipeline.js';
 import { parseRevolutSheet } from './parseRevolut.js';
-import { resolveSheetName, formatHuf, applyTransactionOverrides } from './util.js';
+import { resolveSheetName, formatHuf, applyTransactionOverrides, mergeCorrections, repairJson } from './util.js';
 import { summarizeJointIncome, jointIncomeLabel } from './jointAccount.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from './categorize.js';
 import { categoryTotals, pieEligibleRows, monthlySummary, monthlyTrend, incomeBySource } from './aggregate.js';
 import { categoryColor } from './categoryColors.js';
 import { normalizeNameForGrouping } from './util.js';
-import { DEFAULT_LANGUAGE, t, categoryLabel, summaryLines, missingSheetMessage, genericErrorMessage } from './i18n.js';
-import { loadPreferences, savePreferences } from './preferences.js';
+import { DEFAULT_LANGUAGE, t, categoryLabel, summaryLines, missingSheetMessage, genericErrorMessage, recoveryNoticeMessage } from './i18n.js';
+import { loadPreferences, savePreferences, loadCorruptedBackup, clearCorruptedBackup } from './preferences.js';
 
 const SHEET_NAMES = ['otp', 'rev-eur', 'rev-hu', 'rev-joint'];
 const ALL_CATEGORIES = [...SPENDING_CATEGORIES, ...NON_SPENDING_CATEGORIES.filter((c) => c !== 'Bevétel')];
@@ -44,6 +44,9 @@ const allocationRemainingEl = document.getElementById('allocation-remaining');
 const allocationApplyButton = document.getElementById('allocation-apply');
 const allocationCancelButton = document.getElementById('allocation-cancel');
 const deductionHistoryRowsEl = document.getElementById('deduction-history-rows');
+const recoveryNotice = document.getElementById('recovery-notice');
+const exportCorrectionsButton = document.getElementById('export-corrections');
+const importCorrectionsInput = document.getElementById('import-corrections');
 
 const prefs = loadPreferences();
 
@@ -80,8 +83,11 @@ let jointSelectedCategories = new Set(ALL_CATEGORIES);
 // Every id ever deleted, persisted via preferences.js (keyed by the stable
 // transaction id from assignTransactionIds) so a later upload - even of a
 // different export covering the same date range - doesn't bring a deleted
-// transaction back. Deliberately no restore UI for this: the only way back
-// is to find the row again and know it's "supposed" to be there.
+// transaction back. No restore UI for undeleting a specific transaction on
+// purpose (the only way back is to find the row again and know it's
+// "supposed" to be there) - distinct from the backup/export-file recovery
+// below, which restores this whole collection after storage loss, not one
+// deliberately-deleted row.
 let deletedTransactionIds = new Set(prefs.deletedTransactionIds || []);
 // Cumulative HUF adjustment per transaction id, from the "deduct an income
 // transaction from one or more expenses" feature (e.g. a roommate's rent
@@ -111,6 +117,65 @@ function showError(message) {
 function clearError() {
   errorMessage.hidden = true;
   errorMessage.textContent = '';
+}
+
+function showRecoveryNotice(message) {
+  recoveryNotice.textContent = message;
+  recoveryNotice.hidden = false;
+}
+
+function clearRecoveryNotice() {
+  recoveryNotice.hidden = true;
+  recoveryNotice.textContent = '';
+}
+
+// Shared by the auto-restore-on-upload path and the manual import control -
+// see preferences-corruption-recovery. `parsedBlob` is whatever JSON a
+// backup or an imported file parsed to; only the three correction fields it
+// might carry are used, anything else in the blob is ignored. Merges into
+// the live in-memory state (never dropping anything already active - see
+// mergeCorrections in util.js), persists the result, and shows a notice
+// naming how much of THIS blob was recovered (not a diff against what was
+// already live, which would undercount when the same entry was already
+// active in both).
+function restoreCorrections(parsedBlob) {
+  const incoming = {
+    deletedTransactionIds: new Set(parsedBlob.deletedTransactionIds || []),
+    transactionAdjustments: parsedBlob.transactionAdjustments || {},
+    deductionHistory: parsedBlob.deductionHistory || [],
+  };
+  if (!incoming.deletedTransactionIds.size && !Object.keys(incoming.transactionAdjustments).length && !incoming.deductionHistory.length) return;
+
+  const merged = mergeCorrections({ deletedTransactionIds, transactionAdjustments, deductionHistory }, incoming);
+  deletedTransactionIds = merged.deletedTransactionIds;
+  transactionAdjustments = merged.transactionAdjustments;
+  deductionHistory = merged.deductionHistory;
+  savePreferences({ deletedTransactionIds: [...deletedTransactionIds], transactionAdjustments, deductionHistory });
+  recomputeState();
+
+  showRecoveryNotice(recoveryNoticeMessage(lang, { deletedCount: incoming.deletedTransactionIds.size, deductionCount: incoming.deductionHistory.length }));
+}
+
+// Checks for a corrupted-preferences backup (see js/preferences.js) and, if
+// one exists and parses, restores it and clears the backup so it isn't
+// reapplied on a later upload. A backup that itself fails to parse (the
+// corruption was bad enough that even repairJson (see util.js) can't make
+// sense of it) is left in place rather than silently dropped - there's
+// nothing automatic left to do with it, but it stays available for manual
+// recovery (e.g. the user salvaging what they can from the raw value by
+// hand). In practice this backup key is only ever reached for a value
+// preferences.js's own save path already tried and failed to repair, so
+// this is mostly defense in depth rather than the primary recovery path.
+function recoverFromCorruptedBackup() {
+  const raw = loadCorruptedBackup();
+  if (!raw) return;
+  const parsed = repairJson(raw);
+  if (!parsed) {
+    console.warn('[app] corrupted-preferences backup could not be read, even after attempting repair - leaving it in place');
+    return;
+  }
+  restoreCorrections(parsed);
+  clearCorruptedBackup();
 }
 
 function readSheets(workbook) {
@@ -641,6 +706,46 @@ deductionHistoryRowsEl.addEventListener('click', (event) => {
   undoDeductionEntry(undoButton.dataset.entryId);
 });
 
+// The out-of-browser half of preferences-corruption-recovery: unlike the
+// automatic backup (which lives in localStorage and disappears along with
+// it in a full storage wipe), a downloaded file survives that - the only
+// thing that does, short of a backend this app deliberately doesn't have.
+exportCorrectionsButton.addEventListener('click', () => {
+  const payload = {
+    deletedTransactionIds: [...deletedTransactionIds],
+    transactionAdjustments,
+    deductionHistory,
+    exportedAt: new Date().toISOString(),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `expense-tracker-corrections-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+importCorrectionsInput.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  // Reset immediately so selecting the same file again still fires a
+  // change event (the browser otherwise treats an unchanged selection as a
+  // no-op).
+  importCorrectionsInput.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = repairJson(text);
+    if (!parsed) throw new Error(genericErrorMessage(lang));
+    restoreCorrections(parsed);
+    // Unlike the upload handler (which already re-renders everything
+    // afterward regardless), importing can happen any time after the app
+    // is already showing data, so it needs its own refresh.
+    afterTransactionsChanged();
+  } catch (err) {
+    showError(err.message || genericErrorMessage(lang));
+  }
+});
+
 function renderAll() {
   renderSummary();
   renderIncomeBySource();
@@ -658,6 +763,7 @@ fileInput.addEventListener('change', async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   clearError();
+  clearRecoveryNotice();
 
   try {
     const buffer = await file.arrayBuffer();
@@ -679,6 +785,11 @@ fileInput.addEventListener('change', async (event) => {
     // the new file happens to cover the same dates.
     rawItems = items;
     rawJointRaw = jointRaw;
+    // Before anything else touches deletedTransactionIds/transactionAdjustments/
+    // deductionHistory for this upload, see if a past corrupted save left a
+    // recoverable backup (js/preferences.js) and, if so, fold it back in -
+    // see preferences-corruption-recovery.
+    recoverFromCorruptedBackup();
     migrateLegacyDeductionEntries();
     recomputeState();
     // Any selection from the old upload's (now-replaced) list elements is

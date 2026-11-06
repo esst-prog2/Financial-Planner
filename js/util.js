@@ -165,3 +165,106 @@ export function applyTransactionOverrides(transactions, { deletedIds = new Set()
       return adjusted;
     });
 }
+
+// Computes the exact closing brackets needed to balance a JSON string that
+// was cut off mid-structure (e.g. a write interrupted partway through),
+// by walking it once and tracking which brackets are still open - skipping
+// over string contents (and escaped characters within them) so a brace
+// inside a description text doesn't get counted as real structure. Returns
+// null if the string ends mid-string-literal (unterminated quote) - that
+// can't be safely auto-closed, since there's no way to know whether more
+// of the string's own content was lost along with its closing quote.
+function closingSuffixFor(text) {
+  const stack = [];
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') stack.pop();
+  }
+  if (inString) return null;
+  return stack.reverse().join('');
+}
+
+// Best-effort repair of a JSON string that fails to parse as-is, for
+// recovering a preferences blob corrupted by something outside the app's
+// control (e.g. a write interrupted partway through, or - the shape this
+// was first found against - unrelated bytes appended after otherwise-intact
+// JSON). Returns the parsed value if some repair works, or null if nothing
+// does. Tries, in order:
+// 1. The string as-is (the common, uncorrupted case).
+// 2. Progressively shorter prefixes (longest first, so the most data
+//    survives), which recovers "valid JSON plus trailing garbage" - bounded
+//    to avoid pathological cost on a very large corrupted value.
+// 3. Appending whatever closing brackets `closingSuffixFor` says are still
+//    open, which recovers a write cut short mid-structure.
+// Deliberately does not attempt both repairs combined (e.g. trim then
+// auto-close) - a value corrupted in more than one of these specific ways
+// at once is past what's worth guessing at automatically.
+export function repairJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // fall through to the repair attempts below
+  }
+
+  const maxTrim = Math.min(text.length - 1, 5000);
+  for (let end = text.length - 1; end >= text.length - maxTrim && end > 0; end--) {
+    try {
+      return JSON.parse(text.slice(0, end));
+    } catch {
+      // keep trying shorter prefixes
+    }
+  }
+
+  const suffix = closingSuffixFor(text);
+  if (suffix) {
+    try {
+      return JSON.parse(text + suffix);
+    } catch {
+      // fall through to returning null below
+    }
+  }
+
+  return null;
+}
+
+// Unions a recovered set of corrections (from a corrupted-preferences
+// backup, or an imported file - see preferences-corruption-recovery) into
+// whatever's currently live, for the "recover deletions and deductions"
+// feature. Never drops anything already active:
+// - deletedTransactionIds: plain Set union.
+// - transactionAdjustments: `current` wins on a key both sides have - it's
+//   presumably newer/more authoritative than a backup or an older export.
+// - deductionHistory: concatenated and de-duplicated by `entry.id` when
+//   present; an older, pre-id legacy entry (see migrateLegacyDeductionEntries
+//   in app.js) is deduplicated by an exact (expenseId, incomeId, amount)
+//   match instead, since it has no id to compare by.
+export function mergeCorrections(current, incoming) {
+  const deletedTransactionIds = new Set([...(current.deletedTransactionIds || []), ...(incoming.deletedTransactionIds || [])]);
+  const transactionAdjustments = { ...(incoming.transactionAdjustments || {}), ...(current.transactionAdjustments || {}) };
+
+  const deductionHistory = [...(current.deductionHistory || [])];
+  const seenIds = new Set(deductionHistory.filter((e) => e.id).map((e) => e.id));
+  const seenLegacy = new Set(deductionHistory.filter((e) => !e.id).map((e) => `${e.expenseId}\u0001${e.incomeId}\u0001${e.amount}`));
+  for (const entry of incoming.deductionHistory || []) {
+    if (entry.id) {
+      if (seenIds.has(entry.id)) continue;
+      seenIds.add(entry.id);
+    } else {
+      const legacyKey = `${entry.expenseId}\u0001${entry.incomeId}\u0001${entry.amount}`;
+      if (seenLegacy.has(legacyKey)) continue;
+      seenLegacy.add(legacyKey);
+    }
+    deductionHistory.push(entry);
+  }
+
+  return { deletedTransactionIds, transactionAdjustments, deductionHistory };
+}

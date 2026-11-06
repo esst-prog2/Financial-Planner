@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toIsoDate, normalizeText, normalizeNameForGrouping, resolveSheetName, formatHuf, assignTransactionIds, applyTransactionOverrides } from '../js/util.js';
+import { toIsoDate, normalizeText, normalizeNameForGrouping, resolveSheetName, formatHuf, assignTransactionIds, applyTransactionOverrides, mergeCorrections, repairJson } from '../js/util.js';
 
 test('parses a text-formatted date (bank export style)', () => {
   assert.equal(toIsoDate('2026.09.10 15:49:08'), '2026-09-10');
@@ -124,4 +124,64 @@ test('applyTransactionOverrides only touches fields the transaction actually has
   const [raw] = applyTransactionOverrides([{ id: 'r', amount: -1000 }], { adjustments: { r: 200 } });
   assert.equal(raw.amount, -800);
   assert.ok(!('amountHuf' in raw));
+});
+
+test('mergeCorrections unions deletedTransactionIds from both sides', () => {
+  const result = mergeCorrections({ deletedTransactionIds: new Set(['a']) }, { deletedTransactionIds: new Set(['b']) });
+  assert.deepEqual([...result.deletedTransactionIds].sort(), ['a', 'b']);
+});
+
+test('mergeCorrections lets current win over incoming on a transactionAdjustments key conflict', () => {
+  const result = mergeCorrections({ transactionAdjustments: { x: 500 } }, { transactionAdjustments: { x: 100, y: 200 } });
+  assert.deepEqual(result.transactionAdjustments, { x: 500, y: 200 });
+});
+
+test('mergeCorrections deduplicates deductionHistory entries by id', () => {
+  const shared = { id: 'd1', expenseId: 'e', incomeId: 'i', amount: 1000 };
+  const result = mergeCorrections({ deductionHistory: [shared] }, { deductionHistory: [{ ...shared }, { id: 'd2', expenseId: 'e2', incomeId: 'i2', amount: 2000 }] });
+  assert.deepEqual(
+    result.deductionHistory.map((e) => e.id),
+    ['d1', 'd2'],
+  );
+});
+
+test('mergeCorrections deduplicates legacy (id-less) deductionHistory entries by expenseId/incomeId/amount', () => {
+  const legacy = { expenseId: 'e', incomeId: 'i', amount: 1000 };
+  const result = mergeCorrections({ deductionHistory: [legacy] }, { deductionHistory: [{ ...legacy }] });
+  assert.equal(result.deductionHistory.length, 1);
+});
+
+test('mergeCorrections with nothing on either side returns empty collections', () => {
+  const result = mergeCorrections({}, {});
+  assert.deepEqual([...result.deletedTransactionIds], []);
+  assert.deepEqual(result.transactionAdjustments, {});
+  assert.deepEqual(result.deductionHistory, []);
+});
+
+test('repairJson parses valid JSON as-is', () => {
+  assert.deepEqual(repairJson('{"a":1}'), { a: 1 });
+});
+
+test('repairJson recovers otherwise-valid JSON with garbage appended after it (the real incident\'s shape)', () => {
+  assert.deepEqual(repairJson('{"a":1,"b":[1,2,3]}BROKEN'), { a: 1, b: [1, 2, 3] });
+});
+
+test('repairJson recovers JSON cut short mid-object by closing whatever is still open', () => {
+  assert.deepEqual(repairJson('{"a":1,"b":{"c":2'), { a: 1, b: { c: 2 } });
+});
+
+test('repairJson recovers JSON cut short mid-array', () => {
+  assert.deepEqual(repairJson('{"a":[1,2,3'), { a: [1, 2, 3] });
+});
+
+test('repairJson does not miscount brackets that appear inside a string value', () => {
+  assert.deepEqual(repairJson('{"note":"a { and [ inside text"'), { note: 'a { and [ inside text' });
+});
+
+test('repairJson returns null for a truncated, unterminated string value (unsafe to guess)', () => {
+  assert.equal(repairJson('{"note":"cut off mid'), null);
+});
+
+test('repairJson returns null when nothing recognizable survives', () => {
+  assert.equal(repairJson('not valid json'), null);
 });

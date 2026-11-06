@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadPreferences, savePreferences } from '../js/preferences.js';
+import { loadPreferences, savePreferences, loadCorruptedBackup, clearCorruptedBackup } from '../js/preferences.js';
+
+const BACKUP_KEY = 'expense-tracker:preferences:corrupted-backup';
 
 // A minimal fake localStorage - these tests never touch a real browser
 // store, consistent with how the rest of this project injects an override
@@ -10,6 +12,7 @@ function fakeStorage(initial = {}) {
   return {
     getItem: (key) => (map.has(key) ? map.get(key) : null),
     setItem: (key, value) => map.set(key, value),
+    removeItem: (key) => map.delete(key),
   };
 }
 
@@ -45,4 +48,57 @@ test('loadPreferences recovers from corrupted JSON instead of throwing', () => {
 test('loadPreferences and savePreferences are no-ops without a storage backend', () => {
   assert.deepEqual(loadPreferences(null), {});
   assert.doesNotThrow(() => savePreferences({ lang: 'en' }, null));
+});
+
+test('savePreferences repairs trailing garbage in place instead of discarding the blob (the real incident reproduced)', () => {
+  const storage = fakeStorage();
+  savePreferences({ lang: 'hu', lastMonth: '2026-01' }, storage);
+  const raw = storage.getItem('expense-tracker:preferences');
+  storage.setItem('expense-tracker:preferences', `${raw}BROKEN`);
+
+  savePreferences({ lastMonth: '2026-02' }, storage);
+
+  assert.deepEqual(loadPreferences(storage), { lang: 'hu', lastMonth: '2026-02' });
+  // Repaired in place - nothing was unrecoverable, so no backup was needed.
+  assert.equal(storage.getItem(BACKUP_KEY), null);
+});
+
+test('loadPreferences repairs trailing garbage in place instead of discarding the blob', () => {
+  const storage = fakeStorage({ 'expense-tracker:preferences': '{"lang":"hu","lastMonth":"2026-01"}EXTRA' });
+  assert.deepEqual(loadPreferences(storage), { lang: 'hu', lastMonth: '2026-01' });
+});
+
+test('savePreferences backs up an unparsable blob before overwriting it', () => {
+  const storage = fakeStorage({ 'expense-tracker:preferences': 'not valid json' });
+  savePreferences({ lastMonth: '2026-02' }, storage);
+  assert.equal(storage.getItem(BACKUP_KEY), 'not valid json');
+  // The save itself still goes through, starting fresh.
+  assert.deepEqual(loadPreferences(storage), { lastMonth: '2026-02' });
+});
+
+test('savePreferences does not replace an existing backup with a later corrupted value', () => {
+  const storage = fakeStorage({
+    'expense-tracker:preferences': 'still not valid json',
+    [BACKUP_KEY]: 'the original corrupted value',
+  });
+  savePreferences({ lastMonth: '2026-03' }, storage);
+  assert.equal(storage.getItem(BACKUP_KEY), 'the original corrupted value');
+});
+
+test('savePreferences does not create a backup when nothing was saved yet', () => {
+  const storage = fakeStorage();
+  savePreferences({ lang: 'hu' }, storage);
+  assert.equal(storage.getItem(BACKUP_KEY), null);
+});
+
+test('loadCorruptedBackup returns the raw backed-up value, or null if none exists', () => {
+  assert.equal(loadCorruptedBackup(fakeStorage()), null);
+  const storage = fakeStorage({ [BACKUP_KEY]: 'raw corrupted value' });
+  assert.equal(loadCorruptedBackup(storage), 'raw corrupted value');
+});
+
+test('clearCorruptedBackup removes the backup', () => {
+  const storage = fakeStorage({ [BACKUP_KEY]: 'raw corrupted value' });
+  clearCorruptedBackup(storage);
+  assert.equal(loadCorruptedBackup(storage), null);
 });

@@ -217,6 +217,31 @@ nav#view-switch button.active {
   top: var(--gap);
 }
 
+.deduction-history-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.deduction-history-tools button,
+.import-corrections-label {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--pink-300);
+  background: white;
+  color: var(--pink-700);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.deduction-history-tools button:hover,
+.import-corrections-label:hover {
+  background: var(--pink-50);
+}
+
 /* Shared by the personal and joint views: a full-height left sidebar
    (the category filter) beside a right-hand content column holding every
    other card for that view - the filter visibly spans everything it
@@ -334,6 +359,14 @@ nav#view-switch button.active {
   color: #a13a4a;
   background: var(--pink-50);
   border: 1px solid var(--pink-300);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+}
+
+#recovery-notice {
+  color: #2d6a4f;
+  background: #ecf9f2;
+  border: 1px solid #a7d7bf;
   border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
 }

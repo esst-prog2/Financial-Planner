@@ -29,6 +29,8 @@
   </label>
 </header>
 
+<p id="recovery-notice" role="status" hidden></p>
+
 <div id="month-bar" hidden>
   <div id="month-select" class="month-tabs"></div>
   <div id="joint-month-select" class="month-tabs" hidden></div>
@@ -62,6 +64,13 @@
 
         <aside id="deduction-history" class="card">
           <h2 data-i18n="deductionHistoryHeading">Levonások</h2>
+          <div class="deduction-history-tools">
+            <button type="button" id="export-corrections" data-i18n="exportCorrectionsLabel">Mentés fájlba</button>
+            <label class="import-corrections-label">
+              <span data-i18n="importCorrectionsLabel">Visszaállítás fájlból</span>
+              <input type="file" id="import-corrections" accept=".json" hidden>
+            </label>
+          </div>
           <div id="deduction-history-rows"></div>
         </aside>
       </div>

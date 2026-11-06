@@ -47,6 +47,8 @@ export const STRINGS = {
   deductionOriginalAmountLabel: { hu: 'Eredeti összeg', en: 'Original amount' },
   deductionPercentLabel: { hu: 'levonva', en: 'deducted' },
   deductionUndoLabel: { hu: 'Levonás visszavonása', en: 'Undo this deduction' },
+  exportCorrectionsLabel: { hu: 'Mentés fájlba', en: 'Save to file' },
+  importCorrectionsLabel: { hu: 'Visszaállítás fájlból', en: 'Restore from file' },
 };
 
 export const CATEGORY_LABELS = {
@@ -100,4 +102,14 @@ export function genericErrorMessage(lang) {
   return lang === 'en'
     ? 'An unknown error occurred while processing the file.'
     : 'Ismeretlen hiba történt a fájl feldolgozása közben.';
+}
+
+// deletedCount/deductionCount: how many deleted-transaction ids and
+// deduction-history entries, respectively, came from the recovered source
+// (a corrupted-preferences backup or an imported file) - see
+// preferences-corruption-recovery.
+export function recoveryNoticeMessage(lang, { deletedCount, deductionCount }) {
+  return lang === 'en'
+    ? `Restored from a backup: ${deletedCount} deletion(s) and ${deductionCount} deduction(s).`
+    : `Visszaállítva egy mentésből: ${deletedCount} törlés és ${deductionCount} levonás.`;
 }
