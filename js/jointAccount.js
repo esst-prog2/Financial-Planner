@@ -1,6 +1,7 @@
 import { extractNamedTransferCounterparty, normalizeNameForGrouping, monthOf } from './util.js';
 import { deviceOwnerLabel } from './deviceOwners.js';
 import { resolveNameAlias } from './nameAliases.js';
+import { isRefundLikeDescription } from './categorize.js';
 
 // Contributions are specifically incoming ("tőle") - an outgoing ("neki")
 // transfer from the joint account is spending, not a contribution, so this
@@ -9,8 +10,22 @@ export function extractContributorName(description) {
   return extractNamedTransferCounterparty(description, 'tőle');
 }
 
+// Per the "Contribution exclusion from personal income" requirement, every
+// positive-amount transaction into the joint account is a contribution -
+// the user's own top-ups included, not just a named "Átutalás tőle:"
+// transfer (that narrower check was this function's original
+// implementation, and a real bug: a top-up with a different description,
+// e.g. a card reference like "*1790-os feltöltés", fell through every
+// exclusion and was double-counted as the user's own personal Bevétel on
+// top of showing in the joint contributor breakdown - found on the user's
+// real data). The one thing deliberately NOT treated as a contribution is
+// a positive amount that matches a spending category's own refund
+// keywords (see isRefundLikeDescription) - that's money bouncing back from
+// a joint-paid purchase, which should reduce that category's total the
+// same way a personal refund does, not be swept in as new funding.
 export function isJointContribution(transaction) {
-  return transaction.source === 'revolut-joint' && extractContributorName(transaction.description) !== null;
+  if (transaction.source !== 'revolut-joint' || !(transaction.amount > 0)) return false;
+  return !isRefundLikeDescription(transaction.description);
 }
 
 export function splitJointAmount(amount) {

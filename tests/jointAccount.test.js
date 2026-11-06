@@ -24,6 +24,23 @@ test('isJointContribution is true for a named "tőle" transfer into the joint ac
   assert.equal(isJointContribution(spending), false);
 });
 
+test('isJointContribution is true for a positive-amount top-up that does not match the "tőle" pattern (regression: this used to leak through as the user\'s own Bevétel)', () => {
+  const cardTopUp = { source: 'revolut-joint', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 15000 };
+  const genericTopUp = { source: 'revolut-joint', description: '*1790-os feltöltés', amount: 7500 };
+  assert.equal(isJointContribution(cardTopUp), true);
+  assert.equal(isJointContribution(genericTopUp), true);
+});
+
+test('isJointContribution is false for a positive amount that matches a spending category\'s own refund keywords (a refund, not a contribution)', () => {
+  const refund = { source: 'revolut-joint', description: 'Lidl', amount: 3000 };
+  assert.equal(isJointContribution(refund), false);
+});
+
+test('isJointContribution is false for a non-joint-sourced transaction regardless of amount or description', () => {
+  const personalIncome = { source: 'otp', description: '*1790-os feltöltés', amount: 7500 };
+  assert.equal(isJointContribution(personalIncome), false);
+});
+
 test('summarizeJointIncome includes a named contributor and a non-"tőle" top-up, not just named transfers', () => {
   const transactions = [
     { source: 'revolut-joint', date: '2026-09-10', description: 'Átutalás tőle: T TIBI', counterparty: 'T TIBI', amount: 20000 },

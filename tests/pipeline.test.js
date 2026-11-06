@@ -70,6 +70,22 @@ test('full pipeline: parses, excludes self-transfers and contributions, categori
   assert.equal(fee.amountHuf, -(0.13 * eurRate));
 });
 
+// Regression (found on the user's real data): a positive-amount joint-
+// account top-up whose description doesn't match "Átutalás tőle:" (unlike
+// a card/Apple Pay top-up, which isCardTopUpMovement already catches via
+// the "eszközödön" keyword) used to fall through every exclusion check and
+// get counted as the user's own personal Bevétel, on top of the full
+// amount already showing in the joint contributor breakdown - effectively
+// double-counting the user's own money.
+test('a joint-account top-up with a generic (non-"tőle", non-"eszközödön") description is excluded from personal Bevétel, not double-counted', () => {
+  const s = sheets();
+  s['rev-joint'] = [...s['rev-joint'], ['Feltöltés', 'Folyószámla', '2026.09.20 10:00', '2026.09.20 10:00', '*1790-os feltöltés', 7500, 0, 'HUF', 'ELVÉGEZVE', '']];
+  const items = buildLineItems(s, { ownerName: 'Fikció Hanna' });
+
+  assert.ok(!items.some((i) => i.description.includes('feltöltés')));
+  assert.ok(!items.some((i) => i.category === 'Bevétel' && i.amountHuf === 3750));
+});
+
 test('a joint-sourced line item gets the same id the joint view gets for the same row, so a deletion can find both sides', () => {
   const s = sheets();
   const items = buildLineItems(s, { ownerName: 'Fikció Hanna' });

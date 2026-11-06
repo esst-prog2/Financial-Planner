@@ -14,6 +14,10 @@ function buildDailyRateTable(startDate, endDate, baseRate, amplitude) {
   return table;
 }
 
+// Widened from an initial 2026-only range after a real Revolut export
+// included an EUR transaction dated 2025-11-01, outside it - see
+// PLANNING_LOG. Generous on both ends since this is synthetic-but-plausible
+// data anyway (not real historical rates), not a precision concern.
 export const RATE_TABLES = {
-  EUR: buildDailyRateTable('2026-01-01', '2026-12-31', 400, 8),
+  EUR: buildDailyRateTable('2023-01-01', '2027-12-31', 400, 8),
 };

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction, isCardTopUpMovement } from '../js/categorize.js';
+import { categorizeTransaction, categorizeFee, isPiggyBankMovement, isCurrencyConversionMovement, isOtpRevolutLinkTransaction, isCardTopUpMovement, isRefundLikeDescription } from '../js/categorize.js';
 
 const examples = [
   ['Élelmiszer', 'SPAR MAGYARORSZAG KFT.'],
@@ -265,4 +265,14 @@ test('isCardTopUpMovement recognizes an Apple Pay/card top-up into Revolut', () 
 
 test('isCardTopUpMovement never applies to OTP-side rows themselves', () => {
   assert.equal(isCardTopUpMovement({ source: 'otp', description: 'Apple Pay összegű feltöltés a(z) *6052 eszközödön', amount: 20000 }), false);
+});
+
+test('isRefundLikeDescription matches a spending category\'s own keywords, accent/case-insensitively', () => {
+  assert.equal(isRefundLikeDescription('LIDL'), true);
+  assert.equal(isRefundLikeDescription('Muller'), true);
+});
+
+test('isRefundLikeDescription is false for a description that does not match any spending category', () => {
+  assert.equal(isRefundLikeDescription('*1790-os feltöltés'), false);
+  assert.equal(isRefundLikeDescription(''), false);
 });
