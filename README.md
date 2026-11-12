@@ -53,11 +53,15 @@ What it explicitly does NOT do this term:
 
 ## 6. Running it locally
 
-Don't open `index.html` directly as a file - the app loads `js/app.js` as an ES module (`<script type="module">`), and browsers block module scripts from running on a page opened as a bare `file://` URL. It needs to be served over `http://`, even just locally:
+Don't open `index.html` directly as a file - the app loads `js/app.js` as an ES module (`<script type="module">`), and browsers block module scripts from running on a page opened as a bare `file://` URL. It needs to be served over `http://`, even just locally.
+
+**Windows, easiest:** double-click `start.bat` in the project root. It starts the dev server in its own window and opens the promo page in your browser automatically - no terminal needed. Close that window to stop the server.
+
+**Manual, any OS:**
 
 1. `npm run serve` (uses the included dev server, `scripts/serve.mjs` - no extra dependencies)
 2. Open `http://localhost:5173` in a browser.
 
-On Windows, if `npm run serve` fails with a PowerShell error like `running scripts is disabled on this system`, that's PowerShell's execution policy blocking `npm`'s own script wrapper, not a problem with this project. Run `npm.cmd run serve` instead (or use a Command Prompt / Git Bash terminal instead of PowerShell).
+On Windows, if `npm run serve` fails with a PowerShell error like `running scripts is disabled on this system`, that's PowerShell's execution policy blocking `npm`'s own script wrapper, not a problem with this project. Run `npm.cmd run serve` instead (or use a Command Prompt / Git Bash terminal instead of PowerShell) - `start.bat` already does this for you.
 
 The promo page (`promo/index.html`) is a plain static page with no module script, so it can be opened directly as a file - but its "Open the app" link points at `../index.html`, which still needs the steps above to actually run.
