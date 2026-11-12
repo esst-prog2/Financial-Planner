@@ -50,3 +50,18 @@ What it explicitly does NOT do this term:
 - My Revolut account has multiple currencies. Resolved: everything converts to HUF using a bundled offline historical exchange-rate table rather than a live lookup, so the dashboard still works without network access.
 - I hadn't built an Excel parser or a dashboard with charts before, so this was genuinely new territory for me.
 - Since I'll be working with my actual spending data, I generate a synthetic sample workbook (`npm run generate-sample`, written to `sample-data/`) with made-up transactions for anything I show to other people — it's built from scratch, not derived from my real file. It now covers a full year (not just 45 days), so a demo screenshot has a real monthly trend to show; its figures are made up and differ from the specific numbers quoted in section 1.
+
+## 6. Running it locally
+
+Don't open `index.html` directly as a file - the app loads `js/app.js` as an ES module (`<script type="module">`), and browsers block module scripts from running on a page opened as a bare `file://` URL. It needs to be served over `http://`, even just locally.
+
+**Windows, easiest:** double-click `start.bat` in the project root. It starts the dev server in its own window and opens the promo page in your browser automatically - no terminal needed. Close that window to stop the server.
+
+**Manual, any OS:**
+
+1. `npm run serve` (uses the included dev server, `scripts/serve.mjs` - no extra dependencies)
+2. Open `http://localhost:5173` in a browser.
+
+On Windows, if `npm run serve` fails with a PowerShell error like `running scripts is disabled on this system`, that's PowerShell's execution policy blocking `npm`'s own script wrapper, not a problem with this project. Run `npm.cmd run serve` instead (or use a Command Prompt / Git Bash terminal instead of PowerShell) - `start.bat` already does this for you.
+
+The promo page (`promo/index.html`) is a plain static page with no module script, so it can be opened directly as a file - but its "Open the app" link points at `../index.html`, which still needs the steps above to actually run.
