@@ -33,22 +33,42 @@ The system SHALL present the available months as a row of tab buttons, one colum
 - **THEN** the target view falls back to its own default month instead of showing an empty or invalid selection
 
 ### Requirement: Monthly summary
-The system SHALL display, for the selected month, total spending, total income (Bevétel), and the remaining balance (income minus spending), as a bulleted list in a fixed order: income first, then spending, then the balance. The total spending figure SHALL be computed as the signed sum of every non-Bevétel category's line items for the month (not the sum of each line item's absolute value), so that a refund correctly reduces total spending rather than adding to it.
+The system SHALL display, for the selected month, total income (Bevétel), total Megtakarítás-category spending for that month, total spending, and the remaining balance (income minus spending), as a bulleted list in a fixed order: income first, then the Megtakarítás total, then spending, then the balance. The total spending figure SHALL be computed as the signed sum of every non-Bevétel category's line items for the month (not the sum of each line item's absolute value), so that a refund correctly reduces total spending rather than adding to it. The Megtakarítás total SHALL be computed the same way - the signed sum of that category's line items for the month, with absolute value taken only on the final figure - so a withdrawal reduces it rather than being added as additional savings; a month where it nets to zero or positive SHALL show 0, not a negative figure. The Megtakarítás line SHALL also show what percentage of that month's income it represents, rounded to one decimal place, shown as 0% when income is zero (never a division error). This Megtakarítás line applies to the personal view's monthly summary only, not the joint view's.
 
 #### Scenario: monthly summary values
 - **WHEN** a month's transactions are loaded
-- **THEN** the summary shows that month's spending total, income total, and remaining balance
+- **THEN** the summary shows that month's income total, Megtakarítás total (with its percentage of income), spending total, and remaining balance
 
 #### Scenario: summary lines appear in income, spending, balance order
 - **WHEN** the monthly summary is displayed
-- **THEN** its three lines appear in that fixed order - income, then spending, then the balance - regardless of amount or sign
+- **THEN** its four lines appear in that fixed order - income, then the Megtakarítás total, then spending, then the balance - regardless of amount or sign
 
 #### Scenario: a refund reduces total spending
 - **WHEN** a month has both a purchase and a refund of a smaller amount in the same category
 - **THEN** the displayed total spending reflects the net amount, not the sum of the purchase and the refund treated as separate spending
 
+#### Scenario: a withdrawal reduces the displayed Megtakarítás total
+- **WHEN** a month has both a deposit into and a withdrawal from Megtakarítás, the withdrawal smaller than the deposit
+- **THEN** the displayed Megtakarítás total reflects the net amount, not the deposit alone
+
+#### Scenario: a month with no net savings shows zero, not a negative figure
+- **WHEN** a month's Megtakarítás-category line items sum to zero or a positive (net withdrawal) amount
+- **THEN** the Megtakarítás line shows 0 and 0%
+
+#### Scenario: the Megtakarítás line shows its share of income
+- **WHEN** a month's Megtakarítás total is a nonzero fraction of that month's income
+- **THEN** the Megtakarítás line shows that percentage, rounded to one decimal place
+
+#### Scenario: zero income does not break the percentage
+- **WHEN** a month has zero income but a nonzero Megtakarítás total
+- **THEN** the Megtakarítás line shows 0%, not an error or an undefined value
+
+#### Scenario: the joint view's summary has no Megtakarítás line
+- **WHEN** the joint view's monthly summary is displayed
+- **THEN** it shows only income, spending, and balance - no Megtakarítás line
+
 ### Requirement: Category pie chart
-The system SHALL display a pie chart breaking down the selected month's spending by category, showing each category's percentage of total spending directly alongside its label (not only on hover), and SHALL let the user list the individual transactions within a category as a table with date, description, and amount columns, sorted oldest-first by date. Each category's slice value SHALL be the signed sum of its line items for the month, with absolute value taken only for that final total - not per line item before summing. A category whose signed total for the month is zero or positive SHALL be excluded from the pie (there is nothing to show as spending for it that month). Slices SHALL be sorted in descending order by amount, and each category SHALL always render in the same color across renders, with no two categories sharing a color.
+The system SHALL display a pie chart breaking down the selected month's spending by category, showing each category's percentage of total spending directly alongside its label (not only on hover), and SHALL let the user list the individual transactions within a category as a table with date, description, and amount columns, sorted oldest-first by date. Each category's slice value SHALL be the signed sum of its line items for the month, with absolute value taken only for that final total - not per line item before summing. A category whose signed total for the month is zero or positive SHALL be excluded from the pie (there is nothing to show as spending for it that month). Slices SHALL be sorted in descending order by amount, and each category SHALL always render in the same color across renders, with no two categories sharing a color. The pie SHALL only include a category currently checked in the category filter sidebar (see the Category filter sidebar requirement); an unchecked category's slice SHALL NOT appear even if it would otherwise be pie-eligible. Clicking the category slice whose transaction list is already open SHALL close that list instead of re-rendering it.
 
 #### Scenario: click a category slice
 - **WHEN** the user clicks a category in the pie chart
@@ -74,12 +94,67 @@ The system SHALL display a pie chart breaking down the selected month's spending
 - **WHEN** the category pie chart is displayed in any month
 - **THEN** a given category always renders in the same color, and no two categories displayed at once share a color
 
+#### Scenario: unchecking a category removes its slice
+- **WHEN** the user unchecks a category in the category filter sidebar that would otherwise appear in the pie
+- **THEN** that category's slice disappears from the pie, and the remaining slices' percentages are recalculated against the new, smaller total
+
+#### Scenario: clicking the open category slice again closes its list
+- **WHEN** the user clicks a category slice whose transaction list is already shown
+- **THEN** that list closes, rather than being re-rendered or left open
+
 ### Requirement: Month-by-month trend with category filter
-The system SHALL display a bar chart comparing total spending across all available months, with a category dropdown that filters the chart to a single category's spending per month when selected.
+The system SHALL display a bar chart comparing total spending across all available months, summing only the categories currently checked in the category filter sidebar (see the Category filter sidebar requirement) into a single monthly total per month, and SHALL let the user click a bar to list the individual transactions behind it as a table with date, description, and amount columns, sorted oldest-first by date - mirroring the category pie chart's click-to-list behavior. The listed transactions SHALL be every transaction from that bar's month across every currently-checked category, not a single category. Clicking a bar SHALL NOT change the dashboard's currently-selected month; every other part of the dashboard (the monthly summary, the pie chart, income by source) SHALL continue to reflect whichever month was already selected. Clicking the bar whose transaction list is already open SHALL close that list instead of re-rendering it.
 
 #### Scenario: filter to one category
-- **WHEN** the user selects "Groceries" (Élelmiszer) from the category dropdown
+- **WHEN** the user unchecks every category except "Groceries" (Élelmiszer) in the category filter sidebar
 - **THEN** the bar chart updates to show only Élelmiszer spending for each month
+
+#### Scenario: unchecking a category removes it from the trend
+- **WHEN** the user unchecks a category in the category filter sidebar
+- **THEN** the bar chart's monthly totals no longer include that category's spending
+
+#### Scenario: all categories checked shows the full trend
+- **WHEN** every category is checked
+- **THEN** the bar chart shows each month's total spending across every category, matching today's "no filter" behavior
+
+#### Scenario: clicking a bar lists that month's transactions
+- **WHEN** the user clicks a bar for a given month
+- **THEN** the system lists every transaction from that month across every currently-checked category, as a table with date, description, and amount columns, ordered from the oldest date to the newest
+
+#### Scenario: clicking a bar does not change the selected month
+- **WHEN** the user clicks a bar for a month other than the one currently selected elsewhere on the dashboard
+- **THEN** the monthly summary, the pie chart, and income by source continue showing the originally-selected month, unaffected by the click
+
+#### Scenario: clicking the open bar again closes its list
+- **WHEN** the user clicks a bar whose transaction list is already shown
+- **THEN** that list closes, rather than being re-rendered or left open
+
+### Requirement: Category filter sidebar
+The system SHALL display a persistent, multi-select category filter - one checkbox per spending category plus the non-income, non-spending categories (Készpénzfelvét, Egyéb) - positioned to the left of the category pie chart and the monthly trend bar chart, with every category checked by default. The system SHALL provide a "select all" checkbox that both reflects and controls whether every category is currently checked: checked when every category is checked, and unchecked the moment the user leaves out any one category; checking it SHALL select every category, and unchecking it SHALL deselect every category. The personal view and the joint view SHALL each maintain their own independent filter state, so checking or unchecking a category in one view SHALL NOT affect the other.
+
+#### Scenario: all categories checked by default
+- **WHEN** a file is uploaded and the dashboard first renders
+- **THEN** every category in the filter sidebar is checked, and both the pie chart and the bar chart reflect every category
+
+#### Scenario: select-all re-checks everything
+- **WHEN** the user has unchecked one or more categories, then checks the "select all" checkbox
+- **THEN** every category becomes checked again, and both charts reflect the full, unfiltered set
+
+#### Scenario: unchecking "select all" deselects everything
+- **WHEN** every category is checked and the user unchecks the "select all" checkbox
+- **THEN** every category becomes unchecked, and both charts render with no data
+
+#### Scenario: "select all" unchecks itself when any one category is left out
+- **WHEN** every category is checked and the user manually unchecks a single category
+- **THEN** the "select all" checkbox becomes unchecked, reflecting that not every category is currently selected
+
+#### Scenario: personal and joint filter state are independent
+- **WHEN** the user unchecks a category in the personal view's filter sidebar, then switches to the joint view
+- **THEN** the joint view's filter sidebar still shows every category checked (or whatever its own state was previously), unaffected by the personal view's change
+
+#### Scenario: unchecking every category leaves both charts empty, not broken
+- **WHEN** the user unchecks every category in the filter sidebar
+- **THEN** the pie chart and the bar chart both render with no data, rather than erroring or showing stale data
 
 ### Requirement: Income by source
 The system SHALL display, within the personal dashboard view, a prominent total income figure for the selected month and an itemized list of that month's income grouped by counterparty, with income from the same counterparty summed into a single line. Counterparties SHALL be grouped by a normalized name key (accent-stripped, case-insensitive, word-order-independent) so the same real source is not split across multiple lines due to formatting differences between banks, while the displayed label uses the first-seen raw spelling for that source. Clicking a line SHALL toggle a list of that source's individual transactions open or closed, displayed directly beneath that line (not in a separate area), sorted chronologically by date, each with its date and amount, mirroring the category pie chart's click-to-list behavior.
@@ -103,6 +178,25 @@ The system SHALL display, within the personal dashboard view, a prominent total 
 #### Scenario: clicking an already-open source closes it
 - **WHEN** the user clicks a line whose individual-transaction list is currently shown
 - **THEN** that list is hidden again
+
+### Requirement: Joint monthly summary
+The system SHALL display, within the joint account view, a monthly summary for the currently-selected joint month mirroring the personal view's Monthly summary requirement: total joint spending, total joint contributions (income), and the remaining balance (contributions minus spending), as a bulleted list in the same fixed order (income first, then spending, then the balance). Unlike the personal summary, the joint summary SHALL use each joint-sourced transaction's full (unhalved) amount rather than its personal-view (halved) amount, consistent with the rest of the joint view (its pie chart and monthly-trend chart already show full joint amounts). The joint summary's total spending figure SHALL be computed the same way as the personal summary's - the signed sum of every non-Bevétel joint-sourced line item for the month, so a refund correctly reduces total spending rather than adding to it.
+
+#### Scenario: joint monthly summary values
+- **WHEN** the joint view is open and a joint month's transactions are loaded
+- **THEN** the joint summary shows that month's full (unhalved) joint spending total, joint contribution total, and remaining balance
+
+#### Scenario: joint summary lines appear in income, spending, balance order
+- **WHEN** the joint monthly summary is displayed
+- **THEN** its three lines appear in that fixed order - income, then spending, then the balance - regardless of amount or sign
+
+#### Scenario: a refund reduces joint total spending
+- **WHEN** a joint month has both a purchase and a refund of a smaller amount in the same category
+- **THEN** the displayed joint total spending reflects the net amount, not the sum of the purchase and the refund treated as separate spending
+
+#### Scenario: the joint summary uses full amounts, not halved ones
+- **WHEN** a joint-sourced expense would be halved for the personal view's own totals
+- **THEN** the joint summary's spending total still reflects that expense's full, unhalved amount
 
 ### Requirement: Language toggle
 The system SHALL let the user switch the displayed language between Hungarian and English, translating all static UI text and category display labels; the underlying category identity used for filtering and categorization SHALL remain unaffected by the selected display language.

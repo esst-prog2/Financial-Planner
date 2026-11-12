@@ -58,6 +58,19 @@ test('categoryTotals with jointOnly uses full amountHuf, scoped to revolut-joint
   assert.equal(totals.get('Élelmiszer'), -6000);
 });
 
+test('categoryTotals with a categories Set excludes categories not in it', () => {
+  const items = [item({ category: 'Élelmiszer', personalAmountHuf: -3000 }), item({ category: 'Sport', personalAmountHuf: -2000 })];
+  const totals = categoryTotals(items, { month: '2026-09', categories: new Set(['Élelmiszer']) });
+  assert.equal(totals.get('Élelmiszer'), -3000);
+  assert.equal(totals.has('Sport'), false);
+});
+
+test('categoryTotals with an empty categories Set excludes everything', () => {
+  const items = [item({ personalAmountHuf: -3000 })];
+  const totals = categoryTotals(items, { month: '2026-09', categories: new Set() });
+  assert.equal(totals.size, 0);
+});
+
 test('pieEligibleRows excludes non-negative categories and sorts descending', () => {
   const totals = new Map([
     ['Élelmiszer', -5000],
@@ -83,6 +96,64 @@ test('monthlySummary: a refund reduces total spending instead of adding to it', 
   assert.equal(summary.balance, 345000);
 });
 
+test('monthlySummary: savings is the signed sum of Megtakarítás line items for the month, shown as a positive magnitude', () => {
+  const items = [
+    item({ category: 'Megtakarítás', personalAmountHuf: -20000 }),
+    item({ category: 'Megtakarítás', personalAmountHuf: -5000 }),
+    item({ category: 'Élelmiszer', personalAmountHuf: -3000 }),
+  ];
+  const summary = monthlySummary(items, '2026-09');
+  assert.equal(summary.savings, 25000);
+});
+
+test('monthlySummary: a Megtakarítás withdrawal reduces the displayed savings total', () => {
+  const items = [item({ category: 'Megtakarítás', personalAmountHuf: -20000 }), item({ category: 'Megtakarítás', personalAmountHuf: 6000 })];
+  const summary = monthlySummary(items, '2026-09');
+  assert.equal(summary.savings, 14000);
+});
+
+test('monthlySummary: a month with no net savings shows 0, not a negative figure', () => {
+  const nets_to_zero = monthlySummary([item({ category: 'Megtakarítás', personalAmountHuf: -5000 }), item({ category: 'Megtakarítás', personalAmountHuf: 5000 })], '2026-09');
+  assert.equal(nets_to_zero.savings, 0);
+  const nets_positive = monthlySummary([item({ category: 'Megtakarítás', personalAmountHuf: -5000 }), item({ category: 'Megtakarítás', personalAmountHuf: 9000 })], '2026-09');
+  assert.equal(nets_positive.savings, 0);
+  const none = monthlySummary([item({ category: 'Élelmiszer', personalAmountHuf: -5000 })], '2026-09');
+  assert.equal(none.savings, 0);
+});
+
+test('monthlySummary with jointOnly also computes savings from full joint amounts', () => {
+  const items = [item({ source: 'revolut-joint', category: 'Megtakarítás', personalAmountHuf: -4000, amountHuf: -8000 })];
+  const summary = monthlySummary(items, '2026-09', { jointOnly: true });
+  assert.equal(summary.savings, 8000);
+});
+
+test('monthlySummary with jointOnly uses full (unhalved) joint amounts, ignoring non-joint items', () => {
+  const items = [
+    item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 }),
+    item({ source: 'otp', personalAmountHuf: -5000, amountHuf: -5000 }),
+    item({ source: 'revolut-joint', category: 'Bevétel', personalAmountHuf: 60000, amountHuf: 120000 }),
+  ];
+  const summary = monthlySummary(items, '2026-09', { jointOnly: true });
+  assert.equal(summary.spending, 8000);
+  assert.equal(summary.income, 120000);
+  assert.equal(summary.balance, 112000);
+});
+
+test('monthlySummary with jointOnly: a refund reduces joint total spending instead of adding to it', () => {
+  const items = [
+    item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 }),
+    item({ source: 'revolut-joint', personalAmountHuf: 1500, amountHuf: 3000 }),
+  ];
+  const summary = monthlySummary(items, '2026-09', { jointOnly: true });
+  assert.equal(summary.spending, 5000);
+});
+
+test('monthlySummary without jointOnly is unaffected by joint-sourced items (existing personal behavior unchanged)', () => {
+  const items = [item({ source: 'revolut-joint', personalAmountHuf: -4000, amountHuf: -8000 })];
+  const summary = monthlySummary(items, '2026-09');
+  assert.equal(summary.spending, 4000);
+});
+
 test('monthlyTrend nets per month rather than summing absolute values', () => {
   const items = [
     item({ date: '2026-08-05', personalAmountHuf: -4000 }),
@@ -94,6 +165,36 @@ test('monthlyTrend nets per month rather than summing absolute values', () => {
     ['2026-08', 4000],
     ['2026-09', 5000],
   ]);
+});
+
+test('monthlyTrend with a categories Set sums only the checked categories', () => {
+  const items = [
+    item({ category: 'Élelmiszer', date: '2026-09-05', personalAmountHuf: -4000 }),
+    item({ category: 'Sport', date: '2026-09-05', personalAmountHuf: -1000 }),
+  ];
+  const trend = monthlyTrend(items, new Set(['Élelmiszer']));
+  assert.deepEqual(trend, [['2026-09', 4000]]);
+});
+
+test('monthlyTrend with an empty categories Set returns no months', () => {
+  const items = [item({ date: '2026-09-05', personalAmountHuf: -4000 })];
+  const trend = monthlyTrend(items, new Set());
+  assert.deepEqual(trend, []);
+});
+
+test('monthlyTrend matches the pie chart total: a refund-heavy category does not cancel out another category\'s spending', () => {
+  const items = [
+    item({ category: 'Élelmiszer', date: '2026-03-05', personalAmountHuf: -60000 }),
+    item({ category: 'Sport', date: '2026-03-05', personalAmountHuf: -30000 }),
+    // Megtakarítás nets positive this month (a withdrawal/refund exceeds what went in)
+    // and must be excluded entirely, not netted against the other categories.
+    item({ category: 'Megtakarítás', date: '2026-03-05', personalAmountHuf: 90000 }),
+  ];
+  const categories = new Set(['Élelmiszer', 'Sport', 'Megtakarítás']);
+  const trend = monthlyTrend(items, categories);
+  const pieTotal = pieEligibleRows(categoryTotals(items, { month: '2026-03', categories })).reduce((sum, r) => sum + r.value, 0);
+  assert.deepEqual(trend, [['2026-03', 90000]]);
+  assert.equal(trend[0][1], pieTotal);
 });
 
 test('incomeBySource groups repeated income from the same counterparty and sorts descending', () => {

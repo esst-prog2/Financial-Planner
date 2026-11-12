@@ -5,7 +5,10 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { generateSampleWorkbookData } from '../js/sampleData.js';
 
-const data = generateSampleWorkbookData({ seed: 2026, days: 45 });
+// A full year (not just 45 days) so demo screenshots have a real monthly
+// trend to show, not just the first month or two - see the teacher's HW8
+// feedback.
+const data = generateSampleWorkbookData({ seed: 2026, days: 365 });
 
 const workbook = XLSX.utils.book_new();
 for (const [name, rows] of Object.entries(data)) {

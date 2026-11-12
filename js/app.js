@@ -1,13 +1,14 @@
 import { buildLineItems, monthOf } from './pipeline.js';
 import { parseRevolutSheet } from './parseRevolut.js';
-import { resolveSheetName, formatHuf, applyTransactionOverrides } from './util.js';
+import { resolveSheetName, formatHuf, applyTransactionOverrides, mergeCorrections, repairJson } from './util.js';
 import { summarizeJointIncome, jointIncomeLabel } from './jointAccount.js';
 import { SPENDING_CATEGORIES, NON_SPENDING_CATEGORIES } from './categorize.js';
 import { categoryTotals, pieEligibleRows, monthlySummary, monthlyTrend, incomeBySource } from './aggregate.js';
 import { categoryColor } from './categoryColors.js';
 import { normalizeNameForGrouping } from './util.js';
-import { DEFAULT_LANGUAGE, t, categoryLabel, summaryLines, missingSheetMessage, genericErrorMessage } from './i18n.js';
-import { loadPreferences, savePreferences } from './preferences.js';
+import { DEFAULT_LANGUAGE, t, categoryLabel, summaryLines, missingSheetMessage, genericErrorMessage, recoveryNoticeMessage } from './i18n.js';
+import { loadPreferences, savePreferences, loadCorruptedBackup, clearCorruptedBackup } from './preferences.js';
+import { computeOriginalAmount, applyDeduction, undoDeduction } from './deductions.js';
 
 const SHEET_NAMES = ['otp', 'rev-eur', 'rev-hu', 'rev-joint'];
 const ALL_CATEGORIES = [...SPENDING_CATEGORIES, ...NON_SPENDING_CATEGORIES.filter((c) => c !== 'Bevétel')];
@@ -19,11 +20,16 @@ const viewSwitch = document.getElementById('view-switch');
 const monthBar = document.getElementById('month-bar');
 const monthSelect = document.getElementById('month-select');
 const summaryTextEl = document.getElementById('summary-text');
-const categoryFilter = document.getElementById('category-filter');
+const jointSummaryTextEl = document.getElementById('joint-summary-text');
+const categoryFilterList = document.getElementById('category-filter-list');
+const categoryFilterSelectAll = document.getElementById('category-filter-select-all');
 const categoryTransactions = document.getElementById('category-transactions');
-const jointCategoryFilter = document.getElementById('joint-category-filter');
+const monthlyBarTransactions = document.getElementById('monthly-bar-transactions');
+const jointCategoryFilterList = document.getElementById('joint-category-filter-list');
+const jointCategoryFilterSelectAll = document.getElementById('joint-category-filter-select-all');
 const jointContributors = document.getElementById('joint-contributors');
 const jointCategoryTransactions = document.getElementById('joint-category-transactions');
+const jointMonthlyBarTransactions = document.getElementById('joint-monthly-bar-transactions');
 const jointMonthSelect = document.getElementById('joint-month-select');
 const languageSelect = document.getElementById('language-select');
 const incomeTotalEl = document.getElementById('income-total');
@@ -40,6 +46,10 @@ const allocationRemainingEl = document.getElementById('allocation-remaining');
 const allocationApplyButton = document.getElementById('allocation-apply');
 const allocationCancelButton = document.getElementById('allocation-cancel');
 const deductionHistoryRowsEl = document.getElementById('deduction-history-rows');
+const jointDeductionHistoryRowsEl = document.getElementById('joint-deduction-history-rows');
+const recoveryNotice = document.getElementById('recovery-notice');
+const exportCorrectionsButton = document.getElementById('export-corrections');
+const importCorrectionsInput = document.getElementById('import-corrections');
 
 const prefs = loadPreferences();
 
@@ -58,11 +68,29 @@ let lang = prefs.lang || DEFAULT_LANGUAGE;
 // delete. Not the same thing as deletedTransactionIds below: this is just
 // "what's checked right now."
 let selectedForDeletion = new Set();
+// The kind ('income'/'expense') of each currently selected transaction,
+// kept alongside selectedForDeletion rather than derived from the live
+// DOM - a selection persists across a month switch (the list it was
+// checked in may no longer be rendered), so anything that needs to know
+// what's selected (updateActionBar, renderAllocationPanel) must read this
+// instead of querying checked checkboxes, which only exist for the
+// currently-displayed month.
+let selectedKinds = new Map();
+// Which categories the category filter sidebar currently has checked - one
+// Set per view, independent of each other, both starting with every
+// category checked (the "no filter" default). Drives both that view's pie
+// chart and its monthly-trend bar chart; see categoryTotals/monthlyTrend
+// in aggregate.js for how a category not in the Set is excluded.
+let selectedCategories = new Set(ALL_CATEGORIES);
+let jointSelectedCategories = new Set(ALL_CATEGORIES);
 // Every id ever deleted, persisted via preferences.js (keyed by the stable
 // transaction id from assignTransactionIds) so a later upload - even of a
 // different export covering the same date range - doesn't bring a deleted
-// transaction back. Deliberately no restore UI for this: the only way back
-// is to find the row again and know it's "supposed" to be there.
+// transaction back. No restore UI for undeleting a specific transaction on
+// purpose (the only way back is to find the row again and know it's
+// "supposed" to be there) - distinct from the backup/export-file recovery
+// below, which restores this whole collection after storage loss, not one
+// deliberately-deleted row.
 let deletedTransactionIds = new Set(prefs.deletedTransactionIds || []);
 // Cumulative HUF adjustment per transaction id, from the "deduct an income
 // transaction from one or more expenses" feature (e.g. a roommate's rent
@@ -94,6 +122,65 @@ function clearError() {
   errorMessage.textContent = '';
 }
 
+function showRecoveryNotice(message) {
+  recoveryNotice.textContent = message;
+  recoveryNotice.hidden = false;
+}
+
+function clearRecoveryNotice() {
+  recoveryNotice.hidden = true;
+  recoveryNotice.textContent = '';
+}
+
+// Shared by the auto-restore-on-upload path and the manual import control -
+// see preferences-corruption-recovery. `parsedBlob` is whatever JSON a
+// backup or an imported file parsed to; only the three correction fields it
+// might carry are used, anything else in the blob is ignored. Merges into
+// the live in-memory state (never dropping anything already active - see
+// mergeCorrections in util.js), persists the result, and shows a notice
+// naming how much of THIS blob was recovered (not a diff against what was
+// already live, which would undercount when the same entry was already
+// active in both).
+function restoreCorrections(parsedBlob) {
+  const incoming = {
+    deletedTransactionIds: new Set(parsedBlob.deletedTransactionIds || []),
+    transactionAdjustments: parsedBlob.transactionAdjustments || {},
+    deductionHistory: parsedBlob.deductionHistory || [],
+  };
+  if (!incoming.deletedTransactionIds.size && !Object.keys(incoming.transactionAdjustments).length && !incoming.deductionHistory.length) return;
+
+  const merged = mergeCorrections({ deletedTransactionIds, transactionAdjustments, deductionHistory }, incoming);
+  deletedTransactionIds = merged.deletedTransactionIds;
+  transactionAdjustments = merged.transactionAdjustments;
+  deductionHistory = merged.deductionHistory;
+  savePreferences({ deletedTransactionIds: [...deletedTransactionIds], transactionAdjustments, deductionHistory });
+  recomputeState();
+
+  showRecoveryNotice(recoveryNoticeMessage(lang, { deletedCount: incoming.deletedTransactionIds.size, deductionCount: incoming.deductionHistory.length }));
+}
+
+// Checks for a corrupted-preferences backup (see js/preferences.js) and, if
+// one exists and parses, restores it and clears the backup so it isn't
+// reapplied on a later upload. A backup that itself fails to parse (the
+// corruption was bad enough that even repairJson (see util.js) can't make
+// sense of it) is left in place rather than silently dropped - there's
+// nothing automatic left to do with it, but it stays available for manual
+// recovery (e.g. the user salvaging what they can from the raw value by
+// hand). In practice this backup key is only ever reached for a value
+// preferences.js's own save path already tried and failed to repair, so
+// this is mostly defense in depth rather than the primary recovery path.
+function recoverFromCorruptedBackup() {
+  const raw = loadCorruptedBackup();
+  if (!raw) return;
+  const parsed = repairJson(raw);
+  if (!parsed) {
+    console.warn('[app] corrupted-preferences backup could not be read, even after attempting repair - leaving it in place');
+    return;
+  }
+  restoreCorrections(parsed);
+  clearCorruptedBackup();
+}
+
 function readSheets(workbook) {
   const sheets = {};
   for (const name of SHEET_NAMES) {
@@ -114,19 +201,24 @@ function applyStaticTranslations() {
   document.documentElement.lang = lang;
 }
 
-// Rebuilds both category-filter dropdowns with labels in the current
-// language, while keeping their canonical (Hungarian) values - filtering
-// logic never depends on the display language.
-function renderCategoryFilterOptions() {
-  const previousPersonal = categoryFilter.value;
-  const previousJoint = jointCategoryFilter.value;
-  const optionsHtml = `<option value="">${t('allCategoriesOption', lang)}</option>${ALL_CATEGORIES.map(
-    (c) => `<option value="${c}">${categoryLabel(c, lang)}</option>`,
-  ).join('')}`;
-  categoryFilter.innerHTML = optionsHtml;
-  jointCategoryFilter.innerHTML = optionsHtml;
-  categoryFilter.value = previousPersonal;
-  jointCategoryFilter.value = previousJoint;
+// Builds the checkbox-list markup for one filter sidebar, checked state
+// read from `selected` (the Set itself is the source of truth, not any
+// previous DOM state - a full rebuild never loses anything).
+function categoryFilterListHtml(selected) {
+  return ALL_CATEGORIES.map(
+    (c) => `<li><label><input type="checkbox" class="category-filter-check" value="${c}"${selected.has(c) ? ' checked' : ''}> ${categoryLabel(c, lang)}</label></li>`,
+  ).join('');
+}
+
+// Rebuilds both category-filter sidebars with labels in the current
+// language, while keeping their canonical (Hungarian) values as each
+// checkbox's `value` - filtering logic never depends on the display
+// language, only the visible label text does.
+function renderCategoryFilterCheckboxes() {
+  categoryFilterList.innerHTML = categoryFilterListHtml(selectedCategories);
+  jointCategoryFilterList.innerHTML = categoryFilterListHtml(jointSelectedCategories);
+  categoryFilterSelectAll.checked = selectedCategories.size === ALL_CATEGORIES.length;
+  jointCategoryFilterSelectAll.checked = jointSelectedCategories.size === ALL_CATEGORIES.length;
 }
 
 // Renders the available months as a row of tab buttons instead of a
@@ -191,8 +283,23 @@ function renderJointMonthOptions(items) {
 
 function renderSummary() {
   const month = monthSelect.value;
-  const { income, spending, balance } = monthlySummary(state.items, month);
-  summaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance })
+  const { income, spending, balance, savings } = monthlySummary(state.items, month);
+  // Same rounding convention as withPercentages() below (one decimal
+  // place); 0% rather than a division error when there's no income yet.
+  const savingsPercent = income > 0 ? Math.round((savings / income) * 1000) / 10 : 0;
+  summaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance, savings, savingsPercent })
+    .map(({ label, amount, percent }) => `<li>${label}: ${formatHuf(amount)} HUF${percent !== undefined ? ` (${percent}%)` : ''}</li>`)
+    .join('');
+}
+
+// The joint view's equivalent of renderSummary(), using full (unhalved)
+// joint amounts - see monthlySummary's jointOnly option in aggregate.js -
+// consistent with the joint pie/trend charts, which already show full
+// amounts rather than the personal view's halved ones.
+function renderJointSummary() {
+  const month = jointMonthSelect.value;
+  const { income, spending, balance } = monthlySummary(state.items, month, { jointOnly: true });
+  jointSummaryTextEl.innerHTML = summaryLines(lang, { spending, income, balance })
     .map(({ label, amount }) => `<li>${label}: ${formatHuf(amount)} HUF</li>`)
     .join('');
 }
@@ -261,7 +368,7 @@ function transactionRowHtml(id, text, kind) {
 // one-line-per-row lists the income lists still use. `amountField` is
 // 'personalAmountHuf' for the personal view or 'amountHuf' for the joint
 // view, since a joint-sourced row carries both (see pipeline.js).
-function expenseTableHtml(category, rows, amountField) {
+function expenseTableHtml(heading, rows, amountField) {
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
   const bodyRows = sorted
     .map((r) => {
@@ -277,7 +384,7 @@ function expenseTableHtml(category, rows, amountField) {
     })
     .join('');
   return (
-    `<h3>${categoryLabel(category, lang)}</h3>` +
+    `<h3>${heading}</h3>` +
     '<table><thead><tr><th></th>' +
     `<th>${t('tableDateLabel', lang)}</th><th>${t('tableDescriptionLabel', lang)}</th><th>${t('tableAmountLabel', lang)}</th>` +
     `</tr></thead><tbody>${bodyRows}</tbody></table>`
@@ -298,7 +405,7 @@ function findTransactionById(id) {
   const found = state.items.find((i) => i.id === id) || state.jointRaw.find((t) => t.id === id);
   if (!found) return null;
   const amount = found.amountHuf ?? found.personalAmountHuf ?? found.amount;
-  return { id, description: found.description || t('noDescription', lang), amount, date: found.date };
+  return { id, description: found.description || t('noDescription', lang), amount, date: found.date, source: found.source };
 }
 
 // An expense's full magnitude before any deduction ever chipped away at
@@ -308,12 +415,13 @@ function findTransactionById(id) {
 // targeted the same expense over time - used both by the deduction-history
 // panel's "Eredeti összeg" line and by the allocation panel's %-of-original
 // quick-fill, which must compute against this, not against whatever
-// happens to remain after earlier deductions.
+// happens to remain after earlier deductions. Thin DOM-state wrapper
+// around the pure computeOriginalAmount() in deductions.js, which carries
+// the actual arithmetic (and its own tests).
 function originalAmountForExpense(expenseId) {
   const current = findTransactionById(expenseId);
   const remaining = Math.round(Math.abs(current?.amount ?? 0));
-  const totalDeducted = deductionHistory.filter((e) => e.expenseId === expenseId).reduce((sum, e) => sum + e.amount, 0);
-  return remaining + totalDeducted;
+  return computeOriginalAmount(remaining, deductionHistory, expenseId);
 }
 
 // Adds a legend label (with that category's percentage of the pie's total
@@ -329,7 +437,7 @@ function withPercentages(rows) {
 
 function renderCategoryPie() {
   const month = monthSelect.value;
-  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month })));
+  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month, categories: selectedCategories })));
 
   if (pieChart) pieChart.destroy();
   pieChart = new window.Chart(document.getElementById('category-pie'), {
@@ -344,47 +452,113 @@ function renderCategoryPie() {
   });
 }
 
+// Shared by all four click-to-list containers below (category pie chart,
+// monthly trend bar chart, personal and joint): clicking the same
+// category/month twice in a row closes its list instead of re-rendering
+// it. The currently-open key lives on the container itself (data-open),
+// mirroring toggleTransactionDetail's pattern of reading state off the DOM
+// rather than tracking it in a separate variable. Every place that clears
+// one of these containers must also clear its data-open attribute, or a
+// stale value could make the next click on that same category/month look
+// like "already open" and close instead of show.
+function clearDetailContainer(container) {
+  container.innerHTML = '';
+  delete container.dataset.open;
+}
+
+function toggleDetailContainer(container, key, render) {
+  if (container.dataset.open === key) {
+    container.innerHTML = '';
+    delete container.dataset.open;
+    return;
+  }
+  render();
+  container.dataset.open = key;
+}
+
 function renderCategoryTransactionList(category, month) {
-  const rows = state.items.filter((i) => i.category === category && monthOf(i.date) === month);
-  categoryTransactions.innerHTML = expenseTableHtml(category, rows, 'personalAmountHuf');
+  toggleDetailContainer(categoryTransactions, category, () => {
+    const rows = state.items.filter((i) => i.category === category && monthOf(i.date) === month);
+    categoryTransactions.innerHTML = expenseTableHtml(categoryLabel(category, lang), rows, 'personalAmountHuf');
+  });
+}
+
+// A bar's value is the sum of every currently-checked category for that
+// month (see monthlyTrend in aggregate.js) - the list behind it has to
+// match that same scope, or it would disagree with the bar the same way
+// the bar and pie chart's totals disagreed before that bug fix.
+function renderMonthlyTransactionList(month) {
+  toggleDetailContainer(monthlyBarTransactions, month, () => {
+    const rows = state.items.filter((i) => selectedCategories.has(i.category) && monthOf(i.date) === month);
+    monthlyBarTransactions.innerHTML = expenseTableHtml(month, rows, 'personalAmountHuf');
+  });
+}
+
+// The bar stays a single series (the sum of whatever's currently checked),
+// not one series per category - see design.md's Non-Goals. Its label
+// names the one checked category when there's exactly one (mirroring the
+// old single-category dropdown's label), or the generic "all" label
+// otherwise - for 0 or 2+ categories there's no single name to show.
+function trendDatasetLabel(categories) {
+  if (categories.size === 1) return categoryLabel([...categories][0], lang);
+  return t('allCategoriesOption', lang);
 }
 
 function renderMonthlyBar() {
-  const category = categoryFilter.value;
-  const trend = monthlyTrend(state.items, category);
+  const trend = monthlyTrend(state.items, selectedCategories);
 
   if (barChart) barChart.destroy();
   barChart = new window.Chart(document.getElementById('monthly-bar'), {
     type: 'bar',
     data: {
       labels: trend.map(([month]) => month),
-      datasets: [{ label: category ? categoryLabel(category, lang) : t('allCategoriesOption', lang), data: trend.map(([, total]) => total) }],
+      datasets: [{ label: trendDatasetLabel(selectedCategories), data: trend.map(([, total]) => total) }],
+    },
+    options: {
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        renderMonthlyTransactionList(trend[elements[0].index][0]);
+      },
     },
   });
 }
 
 function renderJointMonthlyBar() {
-  const category = jointCategoryFilter.value;
-  const trend = monthlyTrend(state.items, category, { jointOnly: true });
+  const trend = monthlyTrend(state.items, jointSelectedCategories, { jointOnly: true });
 
   if (jointBarChart) jointBarChart.destroy();
   jointBarChart = new window.Chart(document.getElementById('joint-monthly-bar'), {
     type: 'bar',
     data: {
       labels: trend.map(([month]) => month),
-      datasets: [{ label: category ? categoryLabel(category, lang) : t('allCategoriesOption', lang), data: trend.map(([, total]) => total) }],
+      datasets: [{ label: trendDatasetLabel(jointSelectedCategories), data: trend.map(([, total]) => total) }],
+    },
+    options: {
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        renderJointMonthlyTransactionList(trend[elements[0].index][0]);
+      },
     },
   });
 }
 
 function renderJointCategoryTransactionList(category, month) {
-  const rows = state.items.filter((i) => i.source === 'revolut-joint' && i.category === category && monthOf(i.date) === month);
-  jointCategoryTransactions.innerHTML = expenseTableHtml(category, rows, 'amountHuf');
+  toggleDetailContainer(jointCategoryTransactions, category, () => {
+    const rows = state.items.filter((i) => i.source === 'revolut-joint' && i.category === category && monthOf(i.date) === month);
+    jointCategoryTransactions.innerHTML = expenseTableHtml(categoryLabel(category, lang), rows, 'amountHuf');
+  });
+}
+
+function renderJointMonthlyTransactionList(month) {
+  toggleDetailContainer(jointMonthlyBarTransactions, month, () => {
+    const rows = state.items.filter((i) => i.source === 'revolut-joint' && jointSelectedCategories.has(i.category) && monthOf(i.date) === month);
+    jointMonthlyBarTransactions.innerHTML = expenseTableHtml(month, rows, 'amountHuf');
+  });
 }
 
 function renderJointCategoryPie() {
   const month = jointMonthSelect.value;
-  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month, jointOnly: true })));
+  const rows = withPercentages(pieEligibleRows(categoryTotals(state.items, { month, jointOnly: true, categories: jointSelectedCategories })));
 
   if (jointPieChart) jointPieChart.destroy();
   jointPieChart = new window.Chart(document.getElementById('joint-category-pie'), {
@@ -418,9 +592,11 @@ function renderJointIncome() {
 }
 
 function renderJointView() {
+  renderJointSummary();
   renderJointCategoryPie();
   renderJointMonthlyBar();
   renderJointIncome();
+  renderDeductionHistory({ month: jointMonthSelect.value, container: jointDeductionHistoryRowsEl, jointOnly: true });
 }
 
 // Toggles a clicked row's individual transactions - date order - open or
@@ -437,11 +613,18 @@ function toggleJointIncomeDetail(row, key, month) {
 // deductions listed underneath it (insertion order, so oldest-first within
 // a group) - the shape the user asked for: "always which item I deducted
 // from, and below it, what I deducted."
-// Scoped to the selected month, like every other personal-view content -
-// grouped by (and filtered on) the month the deducted-from EXPENSE itself
-// falls in, not the month the deduction action happened to be made in.
-function renderDeductionHistory() {
-  const month = monthSelect.value;
+// Scoped to `month`, like every other personal/joint-view content - grouped
+// by (and filtered on) the month the deducted-from EXPENSE itself falls in,
+// not the month the deduction action happened to be made in. `jointOnly`
+// scopes the whole panel to only joint-sourced expenses (the joint view's
+// own panel) or only non-joint-sourced ones (the personal view's) - see
+// preferences-corruption-recovery... no, see
+// joint-view-summary-and-deductions for why these two panels are split by
+// source rather than both showing every deduction: previously every
+// deduction showed in the one personal-view panel regardless of source,
+// which meant a joint deduction was invisible from the joint view entirely
+// and could appear mixed into the personal panel.
+function renderDeductionHistory({ month, container, jointOnly }) {
   const groups = new Map();
   for (const entry of deductionHistory) {
     if (!groups.has(entry.expenseId)) groups.set(entry.expenseId, { description: entry.expenseDescription, entries: [] });
@@ -456,20 +639,21 @@ function renderDeductionHistory() {
       const originalAmount = originalAmountForExpense(expenseId);
       const totalDeducted = entries.reduce((sum, e) => sum + e.amount, 0);
       const deductedPct = originalAmount > 0 ? Math.round((totalDeducted / originalAmount) * 1000) / 10 : 0;
-      return { description, entries, originalAmount, remaining, deductedPct, date: current?.date };
+      return { description, entries, originalAmount, remaining, deductedPct, date: current?.date, isJoint: current?.source === 'revolut-joint' };
     })
     // Once an expense has been fully deducted away (nothing left of it, or
     // it's gone entirely - e.g. separately deleted), it drops out of this
     // panel rather than lingering at 0. Also drops anything whose expense
-    // isn't in the currently-selected month.
-    .filter((g) => g.remaining > 0 && monthOf(g.date) === month);
+    // isn't in the currently-selected month, or doesn't belong to this
+    // panel's source (personal vs. joint).
+    .filter((g) => g.remaining > 0 && monthOf(g.date) === month && g.isJoint === jointOnly);
 
   if (!visibleGroups.length) {
-    deductionHistoryRowsEl.innerHTML = `<p>${t('deductionHistoryEmpty', lang)}</p>`;
+    container.innerHTML = `<p>${t('deductionHistoryEmpty', lang)}</p>`;
     return;
   }
 
-  deductionHistoryRowsEl.innerHTML = visibleGroups
+  container.innerHTML = visibleGroups
     .map(
       ({ description, entries, originalAmount, deductedPct }) =>
         `<div class="deduction-group"><h4>${description || t('noDescription', lang)}</h4>` +
@@ -517,30 +701,18 @@ function migrateLegacyDeductionEntries() {
 }
 
 // Reverses exactly one logged deduction, leaving every other entry (even
-// ones from the same income or against the same expense) untouched: adds
-// the entry's amount back to the expense (shrinks its stored adjustment),
-// then recomputes the income's own state from whatever entries still
-// reference it after this one is removed - fully restoring it if none are
-// left, or leaving it as a smaller genuine income if some still are (the
-// same income may have funded several expenses in one action; undoing just
-// one of those should only give back that one's share, not the whole
-// thing).
+// ones from the same income or against the same expense) untouched - see
+// undoDeduction in deductions.js for the actual bookkeeping (restores the
+// expense fully, and the income fully if no other entry still draws from
+// it, or leaves it as a smaller genuine income otherwise). This wrapper
+// just threads module state through that pure function and persists/
+// re-renders the result.
 function undoDeductionEntry(entryId) {
-  const entry = deductionHistory.find((e) => e.id === entryId);
-  if (!entry) return;
+  const result = undoDeduction({ deductionHistory, transactionAdjustments, deletedTransactionIds }, entryId);
+  if (result.deductionHistory === deductionHistory) return; // no matching entry - nothing changed
 
-  deductionHistory = deductionHistory.filter((e) => e.id !== entryId);
-  savePreferences({ deductionHistory });
-
-  transactionAdjustments[entry.expenseId] = (transactionAdjustments[entry.expenseId] || 0) - entry.amount;
-  if (!transactionAdjustments[entry.expenseId]) delete transactionAdjustments[entry.expenseId];
-
-  deletedTransactionIds.delete(entry.incomeId);
-  const stillAllocated = deductionHistory.filter((e) => e.incomeId === entry.incomeId).reduce((sum, e) => sum + e.amount, 0);
-  if (stillAllocated > 0) transactionAdjustments[entry.incomeId] = -stillAllocated;
-  else delete transactionAdjustments[entry.incomeId];
-
-  savePreferences({ deletedTransactionIds: [...deletedTransactionIds], transactionAdjustments });
+  ({ deductionHistory, transactionAdjustments, deletedTransactionIds } = result);
+  savePreferences({ deductionHistory, transactionAdjustments, deletedTransactionIds: [...deletedTransactionIds] });
   recomputeState();
   afterTransactionsChanged();
 }
@@ -551,12 +723,58 @@ deductionHistoryRowsEl.addEventListener('click', (event) => {
   undoDeductionEntry(undoButton.dataset.entryId);
 });
 
+jointDeductionHistoryRowsEl.addEventListener('click', (event) => {
+  const undoButton = event.target.closest('.deduction-undo');
+  if (!undoButton) return;
+  undoDeductionEntry(undoButton.dataset.entryId);
+});
+
+// The out-of-browser half of preferences-corruption-recovery: unlike the
+// automatic backup (which lives in localStorage and disappears along with
+// it in a full storage wipe), a downloaded file survives that - the only
+// thing that does, short of a backend this app deliberately doesn't have.
+exportCorrectionsButton.addEventListener('click', () => {
+  const payload = {
+    deletedTransactionIds: [...deletedTransactionIds],
+    transactionAdjustments,
+    deductionHistory,
+    exportedAt: new Date().toISOString(),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `expense-tracker-corrections-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+importCorrectionsInput.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  // Reset immediately so selecting the same file again still fires a
+  // change event (the browser otherwise treats an unchanged selection as a
+  // no-op).
+  importCorrectionsInput.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = repairJson(text);
+    if (!parsed) throw new Error(genericErrorMessage(lang));
+    restoreCorrections(parsed);
+    // Unlike the upload handler (which already re-renders everything
+    // afterward regardless), importing can happen any time after the app
+    // is already showing data, so it needs its own refresh.
+    afterTransactionsChanged();
+  } catch (err) {
+    showError(err.message || genericErrorMessage(lang));
+  }
+});
+
 function renderAll() {
   renderSummary();
   renderIncomeBySource();
   renderCategoryPie();
   renderMonthlyBar();
-  renderDeductionHistory();
+  renderDeductionHistory({ month: monthSelect.value, container: deductionHistoryRowsEl, jointOnly: false });
   // renderJointView() is intentionally not called here: Chart.js sizes a
   // canvas from its container's layout box at creation time, and the
   // joint-view section starts out hidden (display: none), so a chart
@@ -568,6 +786,7 @@ fileInput.addEventListener('change', async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   clearError();
+  clearRecoveryNotice();
 
   try {
     const buffer = await file.arrayBuffer();
@@ -589,6 +808,11 @@ fileInput.addEventListener('change', async (event) => {
     // the new file happens to cover the same dates.
     rawItems = items;
     rawJointRaw = jointRaw;
+    // Before anything else touches deletedTransactionIds/transactionAdjustments/
+    // deductionHistory for this upload, see if a past corrupted save left a
+    // recoverable backup (js/preferences.js) and, if so, fold it back in -
+    // see preferences-corruption-recovery.
+    recoverFromCorruptedBackup();
     migrateLegacyDeductionEntries();
     recomputeState();
     // Any selection from the old upload's (now-replaced) list elements is
@@ -606,14 +830,16 @@ fileInput.addEventListener('change', async (event) => {
       selectMonth(monthSelect, prefs.lastMonth);
       selectMonth(jointMonthSelect, prefs.lastMonth);
     }
-    renderCategoryFilterOptions();
+    renderCategoryFilterCheckboxes();
     app.hidden = false;
     monthBar.hidden = false;
     viewSwitch.hidden = false;
     // Any previously-shown category/income detail is for the old upload's
     // data - clear it rather than leave it stale.
-    categoryTransactions.innerHTML = '';
-    jointCategoryTransactions.innerHTML = '';
+    clearDetailContainer(categoryTransactions);
+    clearDetailContainer(jointCategoryTransactions);
+    clearDetailContainer(monthlyBarTransactions);
+    clearDetailContainer(jointMonthlyBarTransactions);
     renderAll();
     // If the joint view is the one currently visible, it needs its own
     // re-render too - renderAll() deliberately skips it (see its comment),
@@ -634,42 +860,94 @@ monthSelect.addEventListener('change', () => {
   renderSummary();
   renderIncomeBySource();
   renderCategoryPie();
-  renderDeductionHistory();
+  renderDeductionHistory({ month: monthSelect.value, container: deductionHistoryRowsEl, jointOnly: false });
   // A previously-clicked category's transaction list is now stale (it was
   // for the old month) - clear it rather than leave it showing until the
   // user happens to click a slice again.
-  categoryTransactions.innerHTML = '';
+  clearDetailContainer(categoryTransactions);
+  clearDetailContainer(monthlyBarTransactions);
   savePreferences({ lastMonth: monthSelect.value });
 });
-categoryFilter.addEventListener('change', renderMonthlyBar);
-jointCategoryFilter.addEventListener('change', renderJointMonthlyBar);
+// Delegated, same pattern as the .tx-select listener above - the checkbox
+// list is rebuilt via innerHTML on every renderCategoryFilterCheckboxes()
+// call, so a listener on an individual checkbox wouldn't survive that.
+// Toggling a category affects both charts in the same view at once (the
+// pie and the bar chart share one filter), unlike the old dropdown, which
+// only drove the bar chart.
+categoryFilterList.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('.category-filter-check');
+  if (!checkbox) return;
+  if (checkbox.checked) selectedCategories.add(checkbox.value);
+  else selectedCategories.delete(checkbox.value);
+  // The master checkbox reflects, not just sets, the all-checked state -
+  // setting .checked here doesn't fire its own 'change' event, so this
+  // can't recursively trigger the select-all/deselect-all handler below.
+  categoryFilterSelectAll.checked = selectedCategories.size === ALL_CATEGORIES.length;
+  renderCategoryPie();
+  renderMonthlyBar();
+});
+
+jointCategoryFilterList.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('.category-filter-check');
+  if (!checkbox) return;
+  if (checkbox.checked) jointSelectedCategories.add(checkbox.value);
+  else jointSelectedCategories.delete(checkbox.value);
+  jointCategoryFilterSelectAll.checked = jointSelectedCategories.size === ALL_CATEGORIES.length;
+  renderJointCategoryPie();
+  renderJointMonthlyBar();
+});
+
+// Bidirectional master checkbox: checked selects every category, unchecked
+// deselects every category (no indeterminate/tri-state visual - a plain
+// binary, per the user's explicit choice).
+categoryFilterSelectAll.addEventListener('change', () => {
+  selectedCategories = categoryFilterSelectAll.checked ? new Set(ALL_CATEGORIES) : new Set();
+  renderCategoryFilterCheckboxes();
+  renderCategoryPie();
+  renderMonthlyBar();
+});
+
+jointCategoryFilterSelectAll.addEventListener('change', () => {
+  jointSelectedCategories = jointCategoryFilterSelectAll.checked ? new Set(ALL_CATEGORIES) : new Set();
+  renderCategoryFilterCheckboxes();
+  renderJointCategoryPie();
+  renderJointMonthlyBar();
+});
 jointMonthSelect.addEventListener('change', () => {
+  renderJointSummary();
   renderJointCategoryPie();
   renderJointIncome();
-  jointCategoryTransactions.innerHTML = '';
+  renderDeductionHistory({ month: jointMonthSelect.value, container: jointDeductionHistoryRowsEl, jointOnly: true });
+  clearDetailContainer(jointCategoryTransactions);
+  clearDetailContainer(jointMonthlyBarTransactions);
   savePreferences({ lastMonth: jointMonthSelect.value });
 });
+
+// The "deduct" action only makes sense with at least one income and at
+// least one expense selected at once (otherwise there's nothing to deduct
+// from) - read from selectedKinds rather than the live DOM, since a
+// selected transaction's checkbox may belong to a month that isn't
+// currently rendered at all.
+function updateActionBar() {
+  deleteBar.hidden = selectedForDeletion.size === 0;
+  deleteCountEl.textContent = selectedForDeletion.size;
+  const kinds = [...selectedKinds.values()];
+  allocateButton.hidden = !(kinds.includes('income') && kinds.includes('expense'));
+}
 
 // Delegated on #app rather than on each individual checkbox, since every
 // transaction list gets rebuilt via innerHTML on every render - a listener
 // on the checkbox itself would be gone the next time its list re-renders.
-// The "deduct" action only makes sense with at least one income and at
-// least one expense ticked at once (otherwise there's nothing to deduct
-// from) - re-evaluated against the live DOM's checked boxes every time the
-// selection changes, rather than tracked separately from selectedForDeletion.
-function updateActionBar() {
-  deleteBar.hidden = selectedForDeletion.size === 0;
-  deleteCountEl.textContent = selectedForDeletion.size;
-  const hasIncome = app.querySelector('.tx-select:checked[data-kind="income"]');
-  const hasExpense = app.querySelector('.tx-select:checked[data-kind="expense"]');
-  allocateButton.hidden = !(hasIncome && hasExpense);
-}
-
 app.addEventListener('change', (event) => {
   const checkbox = event.target.closest('.tx-select');
   if (!checkbox) return;
-  if (checkbox.checked) selectedForDeletion.add(checkbox.dataset.txId);
-  else selectedForDeletion.delete(checkbox.dataset.txId);
+  if (checkbox.checked) {
+    selectedForDeletion.add(checkbox.dataset.txId);
+    selectedKinds.set(checkbox.dataset.txId, checkbox.dataset.kind);
+  } else {
+    selectedForDeletion.delete(checkbox.dataset.txId);
+    selectedKinds.delete(checkbox.dataset.txId);
+  }
   updateActionBar();
 });
 
@@ -695,10 +973,13 @@ function recomputeState() {
 // scratch below), and re-render everything currently visible.
 function afterTransactionsChanged() {
   selectedForDeletion = new Set();
+  selectedKinds = new Map();
   deleteBar.hidden = true;
   allocationPanel.hidden = true;
-  categoryTransactions.innerHTML = '';
-  jointCategoryTransactions.innerHTML = '';
+  clearDetailContainer(categoryTransactions);
+  clearDetailContainer(jointCategoryTransactions);
+  clearDetailContainer(monthlyBarTransactions);
+  clearDetailContainer(jointMonthlyBarTransactions);
   renderAll();
   if (!document.getElementById('joint-view').hidden) renderJointView();
 }
@@ -717,6 +998,7 @@ function afterTransactionsChanged() {
 clearSelectionButton.addEventListener('click', () => {
   for (const checkbox of app.querySelectorAll('.tx-select:checked')) checkbox.checked = false;
   selectedForDeletion = new Set();
+  selectedKinds = new Map();
   updateActionBar();
 });
 
@@ -740,8 +1022,11 @@ deleteButton.addEventListener('click', () => {
 let allocationIncomeId = null;
 
 function renderAllocationPanel() {
-  const incomeIds = [...app.querySelectorAll('.tx-select:checked[data-kind="income"]')].map((cb) => cb.dataset.txId);
-  const expenseIds = [...app.querySelectorAll('.tx-select:checked[data-kind="expense"]')].map((cb) => cb.dataset.txId);
+  // Read from selectedKinds, not the live DOM - the income and the
+  // expense(s) may belong to different months, so at most one of them is
+  // actually rendered (and checkable) right now.
+  const incomeIds = [...selectedKinds].filter(([, kind]) => kind === 'income').map(([id]) => id);
+  const expenseIds = [...selectedKinds].filter(([, kind]) => kind === 'expense').map(([id]) => id);
   if (incomeIds.length !== 1 || expenseIds.length === 0) return false;
 
   allocationIncomeId = incomeIds[0];
@@ -863,48 +1148,26 @@ allocationCancelButton.addEventListener('click', () => {
 allocationApplyButton.addEventListener('click', () => {
   if (allocationApplyButton.disabled) return;
   const income = findTransactionById(allocationIncomeId);
-  const incomeTotal = Math.round(Math.abs(income.amount));
+  const incomeAmount = Math.round(Math.abs(income.amount));
 
-  // newLogEntries is the human-readable side of this action, for the
-  // deduction-history panel - "which expense this came out of, and what
-  // came out of it" - each one carries incomeId (not just the income's
-  // description text) and its own id, both needed to undo that specific
-  // entry later without touching any other deduction.
-  const newLogEntries = [];
-  let totalAllocated = 0;
-  for (const row of allocationRowsEl.querySelectorAll('.allocation-row')) {
+  // Read each row's own input - applyDeduction (deductions.js) does the
+  // actual bookkeeping (which rows count, the fully-used-up vs. partial
+  // split, the log entries) and carries its own tests, including the
+  // exact scenario the teacher's HW6 feedback asked for.
+  const allocations = [...allocationRowsEl.querySelectorAll('.allocation-row')].map((row) => {
     const expenseId = row.dataset.expenseId;
-    const amount = Number(row.querySelector('.allocation-amount-input').value) || 0;
-    if (amount <= 0) continue;
-    totalAllocated += amount;
-    transactionAdjustments[expenseId] = (transactionAdjustments[expenseId] || 0) + amount;
-    const expense = findTransactionById(expenseId);
-    newLogEntries.push({
-      id: crypto.randomUUID(),
+    return {
       expenseId,
-      expenseDescription: expense?.description,
-      incomeId: allocationIncomeId,
-      incomeDescription: income.description,
-      amount,
-    });
-  }
-  deductionHistory = [...deductionHistory, ...newLogEntries];
-  savePreferences({ deductionHistory });
+      expenseDescription: findTransactionById(expenseId)?.description,
+      amount: Number(row.querySelector('.allocation-amount-input').value) || 0,
+    };
+  });
 
-  if (totalAllocated >= incomeTotal) {
-    // Fully used up (validation already blocks allocating more than the
-    // income has) - remove it the same way plain delete does.
-    deletedTransactionIds.add(allocationIncomeId);
-    savePreferences({ deletedTransactionIds: [...deletedTransactionIds] });
-  } else {
-    // Only partially used - shrink the income by what got deducted from
-    // it, rather than deleting it; it's still genuine income for the
-    // remainder. A negative delta on a positive amount moves it toward
-    // zero, the same "toward zero" rule applyTransactionOverrides already
-    // uses for an expense's positive delta.
-    transactionAdjustments[allocationIncomeId] = (transactionAdjustments[allocationIncomeId] || 0) - totalAllocated;
-  }
-  savePreferences({ transactionAdjustments });
+  ({ deductionHistory, transactionAdjustments, deletedTransactionIds } = applyDeduction(
+    { deductionHistory, transactionAdjustments, deletedTransactionIds },
+    { incomeId: allocationIncomeId, incomeDescription: income.description, incomeAmount, allocations },
+  ));
+  savePreferences({ deductionHistory, transactionAdjustments, deletedTransactionIds: [...deletedTransactionIds] });
 
   recomputeState();
   afterTransactionsChanged();
@@ -955,23 +1218,25 @@ languageSelect.addEventListener('change', () => {
   lang = languageSelect.value;
   savePreferences({ lang });
   applyStaticTranslations();
-  renderCategoryFilterOptions();
+  renderCategoryFilterCheckboxes();
   if (state.items.length) {
     renderSummary();
     renderIncomeBySource();
     renderCategoryPie();
     renderMonthlyBar();
     // A previously-shown detail list's heading (category label, or a "no
-    // description" fallback) is still in the old language - clear it
-    // rather than leave it stale.
-    categoryTransactions.innerHTML = '';
-    jointCategoryTransactions.innerHTML = '';
+    // description" fallback) and its table column headers are still in the
+    // old language - clear it rather than leave it stale.
+    clearDetailContainer(categoryTransactions);
+    clearDetailContainer(jointCategoryTransactions);
+    clearDetailContainer(monthlyBarTransactions);
+    clearDetailContainer(jointMonthlyBarTransactions);
     if (!document.getElementById('joint-view').hidden) renderJointView();
   }
 });
 
 applyStaticTranslations();
-renderCategoryFilterOptions();
+renderCategoryFilterCheckboxes();
 languageSelect.value = lang;
 if (ownerNameInput && prefs.ownerName) ownerNameInput.value = prefs.ownerName;
 ownerNameInput?.addEventListener('change', () => savePreferences({ ownerName: ownerNameInput.value }));

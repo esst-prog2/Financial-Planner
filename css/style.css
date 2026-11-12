@@ -38,7 +38,7 @@ body {
   background: var(--paper);
   margin: 0;
   padding: var(--gap);
-  max-width: 960px;
+  max-width: 1600px;
   margin-inline: auto;
 }
 
@@ -204,26 +204,96 @@ nav#view-switch button.active {
   margin-bottom: var(--gap);
 }
 
-#income-pie-split {
+#income-deduction-split,
+#joint-income-deduction-split {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--gap);
   align-items: start;
 }
 
-#income-pie-left .card:last-child {
-  margin-bottom: 0;
-}
-
-#deduction-history {
+#deduction-history,
+#joint-deduction-history {
   margin-bottom: var(--gap);
   position: sticky;
   top: var(--gap);
 }
 
+.deduction-history-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.deduction-history-tools button,
+.import-corrections-label {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--pink-300);
+  background: white;
+  color: var(--pink-700);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.deduction-history-tools button:hover,
+.import-corrections-label:hover {
+  background: var(--pink-50);
+}
+
+/* Shared by the personal and joint views: a full-height left sidebar
+   (the category filter) beside a right-hand content column holding every
+   other card for that view - the filter visibly spans everything it
+   actually controls, not just the chart it happens to sit next to. */
+.dashboard-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: flex-start;
+}
+
+.category-filter-sidebar {
+  flex: 1 1 260px;
+  max-width: 280px;
+  position: sticky;
+  top: var(--gap);
+}
+
+.category-filter-sidebar .select-all {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+
+.category-filter-sidebar ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.category-filter-sidebar li {
+  margin-bottom: 0.3rem;
+}
+
+.dashboard-content {
+  flex: 999 1 560px;
+  min-width: 0;
+}
+
 @media (max-width: 760px) {
-  #income-pie-split {
+  #income-deduction-split,
+  #joint-income-deduction-split {
     grid-template-columns: 1fr;
+  }
+
+  .category-filter-sidebar {
+    position: static;
+    max-width: none;
   }
 }
 
@@ -282,7 +352,8 @@ nav#view-switch button.active {
   background: var(--pink-50);
 }
 
-#deduction-history-rows p {
+#deduction-history-rows p,
+#joint-deduction-history-rows p {
   font-size: 0.85rem;
   color: var(--ink-soft);
   margin: 0;
@@ -292,6 +363,14 @@ nav#view-switch button.active {
   color: #a13a4a;
   background: var(--pink-50);
   border: 1px solid var(--pink-300);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+}
+
+#recovery-notice {
+  color: #2d6a4f;
+  background: #ecf9f2;
+  border: 1px solid #a7d7bf;
   border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
 }
@@ -478,12 +557,14 @@ canvas {
   max-height: 360px;
 }
 
-#summary-text {
+#summary-text,
+#joint-summary-text {
   margin: 0;
   padding-left: 1.25rem;
 }
 
-#summary-text li {
+#summary-text li,
+#joint-summary-text li {
   padding: 0.2rem 0;
   font-size: 1.05rem;
 }
@@ -542,19 +623,25 @@ canvas {
 }
 
 #category-transactions,
-#joint-category-transactions {
+#joint-category-transactions,
+#monthly-bar-transactions,
+#joint-monthly-bar-transactions {
   margin-top: 0.75rem;
 }
 
 #category-transactions table,
-#joint-category-transactions table {
+#joint-category-transactions table,
+#monthly-bar-transactions table,
+#joint-monthly-bar-transactions table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
 
 #category-transactions th,
-#joint-category-transactions th {
+#joint-category-transactions th,
+#monthly-bar-transactions th,
+#joint-monthly-bar-transactions th {
   text-align: left;
   font-weight: 600;
   color: var(--pink-700);
@@ -563,15 +650,21 @@ canvas {
 }
 
 #category-transactions td,
-#joint-category-transactions td {
+#joint-category-transactions td,
+#monthly-bar-transactions td,
+#joint-monthly-bar-transactions td {
   padding: 0.3rem 0.5rem;
   border-bottom: 1px dashed var(--pink-100);
 }
 
 #category-transactions td:last-child,
 #joint-category-transactions td:last-child,
+#monthly-bar-transactions td:last-child,
+#joint-monthly-bar-transactions td:last-child,
 #category-transactions th:last-child,
-#joint-category-transactions th:last-child {
+#joint-category-transactions th:last-child,
+#monthly-bar-transactions th:last-child,
+#joint-monthly-bar-transactions th:last-child {
   text-align: right;
 }
 
@@ -579,13 +672,19 @@ canvas {
    the description (3rd column) wraps when it's too long. */
 #category-transactions td:nth-child(2),
 #joint-category-transactions td:nth-child(2),
+#monthly-bar-transactions td:nth-child(2),
+#joint-monthly-bar-transactions td:nth-child(2),
 #category-transactions td:last-child,
-#joint-category-transactions td:last-child {
+#joint-category-transactions td:last-child,
+#monthly-bar-transactions td:last-child,
+#joint-monthly-bar-transactions td:last-child {
   white-space: nowrap;
 }
 
 #category-transactions td:nth-child(3),
-#joint-category-transactions td:nth-child(3) {
+#joint-category-transactions td:nth-child(3),
+#monthly-bar-transactions td:nth-child(3),
+#joint-monthly-bar-transactions td:nth-child(3) {
   white-space: normal;
   word-break: break-word;
 }

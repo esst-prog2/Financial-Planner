@@ -13,12 +13,17 @@ import { normalizeNameForGrouping } from './util.js';
 // has no month selector). jointOnly: true scopes to rev-joint transactions
 // using their full (unhalved) amountHuf; false uses personalAmountHuf
 // (already halved for joint lines) across every source.
-export function categoryTotals(items, { month = null, jointOnly = false } = {}) {
+// categories: null means "every category" (the category filter sidebar's
+// all-checked default); otherwise a Set of category names to include -
+// anything not in it contributes nothing to the totals, same as if it
+// didn't exist in items at all.
+export function categoryTotals(items, { month = null, jointOnly = false, categories = null } = {}) {
   const totals = new Map();
   for (const item of items) {
     if (jointOnly && item.source !== 'revolut-joint') continue;
     if (item.category === 'Bevétel') continue;
     if (month && monthOf(item.date) !== month) continue;
+    if (categories && !categories.has(item.category)) continue;
     const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
     totals.set(item.category, (totals.get(item.category) || 0) + amount);
   }
@@ -35,29 +40,53 @@ export function pieEligibleRows(totals) {
     .sort((a, b) => b.value - a.value);
 }
 
-export function monthlySummary(items, month) {
+// jointOnly: true scopes to revolut-joint items using their full (unhalved)
+// amountHuf - the joint view's own summary - instead of personalAmountHuf
+// across every source, same convention as categoryTotals/monthlyTrend above.
+export function monthlySummary(items, month, { jointOnly = false } = {}) {
   let income = 0;
   let netSpending = 0;
+  let netSavings = 0;
   for (const item of items) {
+    if (jointOnly && item.source !== 'revolut-joint') continue;
     if (monthOf(item.date) !== month) continue;
-    if (item.category === 'Bevétel') income += item.personalAmountHuf;
-    else netSpending += item.personalAmountHuf;
+    const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
+    if (item.category === 'Bevétel') income += amount;
+    else netSpending += amount;
+    if (item.category === 'Megtakarítás') netSavings += amount;
   }
-  return { income, spending: Math.abs(netSpending), balance: income + netSpending };
+  // Same netting convention as categoryTotals/pieEligibleRows: a category
+  // that nets to zero or positive (a withdrawal month) has nothing to show
+  // as spending, so it displays 0 rather than a negative figure.
+  return { income, spending: Math.abs(netSpending), balance: income + netSpending, savings: Math.max(0, -netSavings) };
 }
 
-export function monthlyTrend(items, category, { jointOnly = false } = {}) {
-  const totals = new Map();
+// categories: null means "every category"; otherwise a Set of category
+// names to include - see categoryTotals above for the same convention.
+//
+// Nets per CATEGORY first, then excludes a category whose net is zero or
+// positive (same rule pieEligibleRows applies for the pie chart), and only
+// then sums the remaining categories' absolute values - not a single
+// combined net-then-abs across every checked category. Summing raw first
+// would let a refund-heavy category (net positive) silently cancel out
+// another category's real spending before the total is ever shown, which
+// doesn't match the pie chart showing the same checked categories for the
+// same month - a found-via-use bug (the two charts briefly disagreed on
+// one month's total with multiple categories checked, see PLANNING_LOG).
+export function monthlyTrend(items, categories, { jointOnly = false } = {}) {
+  const perMonth = new Map(); // month -> Map(category -> signed total)
   for (const item of items) {
     if (jointOnly && item.source !== 'revolut-joint') continue;
     if (item.category === 'Bevétel') continue;
-    if (category && item.category !== category) continue;
+    if (categories && !categories.has(item.category)) continue;
     const month = monthOf(item.date);
     const amount = jointOnly ? item.amountHuf : item.personalAmountHuf;
-    totals.set(month, (totals.get(month) || 0) + amount);
+    if (!perMonth.has(month)) perMonth.set(month, new Map());
+    const catTotals = perMonth.get(month);
+    catTotals.set(item.category, (catTotals.get(item.category) || 0) + amount);
   }
-  return [...totals.entries()]
-    .map(([month, netAmount]) => [month, Math.abs(netAmount)])
+  return [...perMonth.entries()]
+    .map(([month, catTotals]) => [month, pieEligibleRows(catTotals).reduce((sum, r) => sum + r.value, 0)])
     .sort(([a], [b]) => a.localeCompare(b));
 }
 

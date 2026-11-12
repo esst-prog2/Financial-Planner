@@ -13,14 +13,17 @@ export const STRINGS = {
   navPersonal: { hu: 'Személyes áttekintő', en: 'Personal overview' },
   navJoint: { hu: 'Közös számla', en: 'Joint account' },
   summaryHeading: { hu: 'Havi összesítő', en: 'Monthly summary' },
+  jointSummaryHeading: { hu: 'Közös számla - havi összesítő', en: 'Joint account - monthly summary' },
   summaryIncomeLabel: { hu: 'Bevétel', en: 'Income' },
   summarySpendingLabel: { hu: 'Kiadás', en: 'Spending' },
   summaryBalanceLabel: { hu: 'Különbözet', en: 'Balance' },
+  summarySavingsLabel: { hu: 'Megtakarítás', en: 'Savings' },
   incomeHeading: { hu: 'Bevétel forrásonként', en: 'Income by source' },
   categoryPieHeading: { hu: 'Kategória szerinti bontás', en: 'Spending by category' },
   monthlyTrendHeading: { hu: 'Havi trend', en: 'Monthly trend' },
   categoryFilterLabel: { hu: 'Kategória szűrő:', en: 'Category filter:' },
   allCategoriesOption: { hu: 'Összes', en: 'All' },
+  selectAllCategoriesLabel: { hu: 'Mind kijelölése', en: 'Select all' },
   jointPieHeading: { hu: 'Közös számla - teljes kiadás kategóriánként', en: 'Joint account - full spending by category' },
   jointTrendHeading: { hu: 'Közös számla - havi trend', en: 'Joint account - monthly trend' },
   contributorsHeading: { hu: 'Közös számlára érkezett', en: 'Money into the joint account' },
@@ -46,6 +49,8 @@ export const STRINGS = {
   deductionOriginalAmountLabel: { hu: 'Eredeti összeg', en: 'Original amount' },
   deductionPercentLabel: { hu: 'levonva', en: 'deducted' },
   deductionUndoLabel: { hu: 'Levonás visszavonása', en: 'Undo this deduction' },
+  exportCorrectionsLabel: { hu: 'Mentés fájlba', en: 'Save to file' },
+  importCorrectionsLabel: { hu: 'Visszaállítás fájlból', en: 'Restore from file' },
 };
 
 export const CATEGORY_LABELS = {
@@ -80,13 +85,21 @@ export function categoryLabel(category, lang) {
 
 // One line per figure, in a fixed order (income, then spending, then the
 // difference) - rendered as a bulleted list rather than one flowing
-// sentence.
-export function summaryLines(lang, { spending, income, balance }) {
-  return [
-    { label: t('summaryIncomeLabel', lang), amount: income },
-    { label: t('summarySpendingLabel', lang), amount: spending },
-    { label: t('summaryBalanceLabel', lang), amount: balance },
-  ];
+// sentence. `savings`, if given, inserts a line right after income (the
+// month's Megtakarítás total) - the personal view's own summary passes it,
+// the joint view's doesn't, so omitting it keeps the existing three-line
+// result unchanged there. `savingsPercent`, if also given, attaches a
+// `percent` field to that line only (its share of the income line above
+// it) - the other three lines never carry a `percent` field.
+export function summaryLines(lang, { spending, income, balance, savings, savingsPercent }) {
+  const lines = [{ label: t('summaryIncomeLabel', lang), amount: income }];
+  if (savings !== undefined) {
+    const savingsLine = { label: t('summarySavingsLabel', lang), amount: savings };
+    if (savingsPercent !== undefined) savingsLine.percent = savingsPercent;
+    lines.push(savingsLine);
+  }
+  lines.push({ label: t('summarySpendingLabel', lang), amount: spending }, { label: t('summaryBalanceLabel', lang), amount: balance });
+  return lines;
 }
 
 export function missingSheetMessage(sheetName, lang) {
@@ -99,4 +112,14 @@ export function genericErrorMessage(lang) {
   return lang === 'en'
     ? 'An unknown error occurred while processing the file.'
     : 'Ismeretlen hiba történt a fájl feldolgozása közben.';
+}
+
+// deletedCount/deductionCount: how many deleted-transaction ids and
+// deduction-history entries, respectively, came from the recovered source
+// (a corrupted-preferences backup or an imported file) - see
+// preferences-corruption-recovery.
+export function recoveryNoticeMessage(lang, { deletedCount, deductionCount }) {
+  return lang === 'en'
+    ? `Restored from a backup: ${deletedCount} deletion(s) and ${deductionCount} deduction(s).`
+    : `Visszaállítva egy mentésből: ${deletedCount} törlés és ${deductionCount} levonás.`;
 }

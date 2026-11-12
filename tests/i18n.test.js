@@ -45,3 +45,32 @@ test('summaryLines returns income, then spending, then the balance, in that orde
     ['Income', 'Spending', 'Balance'],
   );
 });
+
+test('summaryLines inserts a savings line right after income only when given one', () => {
+  const withSavings = summaryLines('hu', { spending: 341715, income: 380000, balance: 38285, savings: 25000 });
+  assert.deepEqual(
+    withSavings.map((l) => l.label),
+    ['Bevétel', 'Megtakarítás', 'Kiadás', 'Különbözet'],
+  );
+  assert.equal(withSavings[1].amount, 25000);
+
+  const withoutSavings = summaryLines('hu', { spending: 341715, income: 380000, balance: 38285 });
+  assert.deepEqual(
+    withoutSavings.map((l) => l.label),
+    ['Bevétel', 'Kiadás', 'Különbözet'],
+  );
+});
+
+test('summaryLines attaches a percent field to the savings line only, when savingsPercent is given', () => {
+  const lines = summaryLines('hu', { spending: 341715, income: 380000, balance: 38285, savings: 25000, savingsPercent: 6.6 });
+  const [income, savingsLine, spending, balance] = lines;
+  assert.equal(savingsLine.percent, 6.6);
+  assert.equal(income.percent, undefined);
+  assert.equal(spending.percent, undefined);
+  assert.equal(balance.percent, undefined);
+});
+
+test('summaryLines: the savings line has no percent field when savingsPercent is omitted', () => {
+  const lines = summaryLines('hu', { spending: 341715, income: 380000, balance: 38285, savings: 25000 });
+  assert.equal(lines[1].percent, undefined);
+});

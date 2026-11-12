@@ -40,6 +40,16 @@ function matchRefundEligibleCategory(text) {
   return null;
 }
 
+// Exported so isJointContribution (jointAccount.js) can tell a genuine
+// refund on the joint account (money bouncing back from a joint-paid
+// purchase, which should reduce that category's total the same way a
+// personal refund does) apart from a contribution (new money funding the
+// account) - everything positive that isn't recognizably a refund is a
+// contribution, regardless of its description's exact wording.
+export function isRefundLikeDescription(description) {
+  return matchRefundEligibleCategory(` ${normalizeText(description)} `) !== null;
+}
+
 function matchesAny(text, keywords) {
   return keywords.some((k) => text.includes(k));
 }
