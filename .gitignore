@@ -13,3 +13,12 @@ js/nameAliases.local.js
 # scripts/spike-export-template.mjs. Only spike-results.json (aggregate
 # counts) is meant to be committed.
 spike/
+
+# Impeccable (design tool, HW9) - project-scoped install, reproducible via
+# `npx impeccable install`. Not committed: it's a 20+MB vendored binary plus
+# generated reference docs, and settings.local.json is local-only by
+# Claude Code's own convention (same reason gstack was installed globally
+# instead of into this repo).
+.claude/skills/impeccable/
+.claude/agents/impeccable-*.md
+.claude/settings.local.json
