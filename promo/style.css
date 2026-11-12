@@ -133,6 +133,26 @@ a {
   margin-top: 16px;
 }
 
+/* Video */
+
+.promo-video {
+  padding: 0 var(--pad-x) 48px;
+}
+
+.promo-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.promo-video video a {
+  color: #fff;
+}
+
 /* Who it's for */
 
 .promo-who {
