@@ -16,7 +16,7 @@ People who share a household (and a joint bank account) with someone else, and a
 
 ## Product Purpose
 
-Expense Overview merges a user's OTP and Revolut bank exports - a personal EUR account, a personal HUF account, and a joint account shared with one other person - into one categorized spending dashboard. It converts every currency to HUF automatically, counts only the user's fair half of a joint expense toward their own totals (with a separate full-picture view of the joint account), and lets the user correct a transaction after the fact - delete one that shouldn't count, or mark part of an income as a reimbursement for a specific expense it actually offsets - so a split or reimbursed cost never distorts personal income or spending totals.
+Expense Overview merges a user's OTP and Revolut bank exports - a personal EUR account, a personal HUF account, and a joint account shared with one other person - into one categorized spending dashboard. It converts the personal EUR account's transactions to HUF automatically (using a bundled offline rate table), counts only the user's fair half of a joint expense toward their own totals (with a separate full-picture view of the joint account), and lets the user correct a transaction after the fact - delete one that shouldn't count, or mark part of an income as a reimbursement for a specific expense it actually offsets - so a split or reimbursed cost never distorts personal income or spending totals.
 
 ## Positioning
 
