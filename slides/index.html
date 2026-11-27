@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Expense Overview — Your slides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,500&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root {
+    --pink-50: #fdf3f5;
+    --pink-100: #f9e1e6;
+    --pink-200: #f3cdd5;
+    --pink-300: #e8aeb9;
+    --pink-500: #c97b8c;
+    --pink-700: #9c5468;
+    --pink-800: #7e4152;
+    --ink: #4a3a3e;
+    --ink-soft: #7a666b;
+    --paper: #fffbfc;
+    --line: #ecd9dd;
+    --rail-w: 25%;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--paper); overflow: hidden; }
+  .reveal { font-family: 'Poppins', system-ui, sans-serif; color: var(--ink); background: var(--paper); }
+  .reveal .slides { text-align: left; }
+  .reveal .slides section {
+    background: var(--paper);
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* ---- shared slide skeleton: a full-bleed rail + a content field ---- */
+  .slide {
+    display: grid;
+    grid-template-columns: var(--rail-w) 1fr;
+    width: 100%;
+    height: 100%;
+  }
+  .rail {
+    background: var(--pink-700);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 64px 44px;
+    position: relative;
+  }
+  .rail .num {
+    font-family: 'Playfair Display', serif;
+    font-weight: 800;
+    font-size: 8.4rem;
+    line-height: 0.85;
+    color: rgba(255,255,255,0.94);
+  }
+  .rail .num small {
+    font-size: 0.26em;
+    font-weight: 600;
+    opacity: 0.75;
+    margin-left: 4px;
+  }
+  .rail .rule {
+    width: 56px;
+    height: 3px;
+    background: rgba(255,255,255,0.4);
+    margin: 28px 0 20px;
+  }
+  .rail .tag {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.85);
+  }
+  .content {
+    padding: 88px 96px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 36px;
+  }
+  .content h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 4.4rem;
+    line-height: 1.05;
+    margin: 0;
+    max-width: 16ch;
+  }
+
+  /* ---- content building blocks (each slide composes a different set) ---- */
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; }
+  .chip {
+    display: inline-block;
+    border: 2px solid var(--pink-300);
+    color: var(--pink-800);
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    padding: 10px 26px;
+    border-radius: 999px;
+  }
+  .statement {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.5rem;
+    line-height: 1.32;
+    color: var(--ink);
+    max-width: 32ch;
+  }
+  .statement b { font-style: normal; color: var(--pink-700); }
+  .detail {
+    font-size: 1.6rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 50ch;
+  }
+  .detail b { color: var(--pink-700); font-weight: 700; }
+
+  /* ---- slide 4: before/now recovery comparison ---- */
+  .recovery-wrap { display: flex; align-items: center; gap: 44px; }
+  .recovery-face { position: relative; width: 84px; height: 84px; flex: none; }
+  .recovery-face svg { position: absolute; top: 0; left: 0; }
+  .recovery-face-sad { color: var(--ink-soft); }
+  .recovery-face-happy { color: var(--pink-700); }
+  .recovery-compare {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .recovery-row { display: flex; align-items: center; gap: 22px; }
+  .recovery-tag {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    width: 7ch;
+    flex: none;
+  }
+  .recovery-chip {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    padding: 14px 28px;
+    border-radius: 999px;
+  }
+  .recovery-chip-muted {
+    background: var(--pink-50);
+    color: var(--ink-soft);
+    text-decoration: line-through;
+    text-decoration-color: var(--pink-300);
+    text-decoration-thickness: 2px;
+  }
+  .recovery-chip-solid { background: var(--pink-700); color: #fff; }
+  .recovery-chip-pending { background: transparent; border: 1.5px dashed var(--pink-300); color: var(--ink-soft); }
+  .recovery-arrow { color: var(--pink-300); font-size: 1.6rem; }
+
+  /* ---- demo slide: step-by-step walkthrough of the real running app ---- */
+  .demo-slide { position: relative; width: 100%; height: 100%; }
+  .demo-corner {
+    position: absolute;
+    top: 32px;
+    left: 32px;
+    z-index: 2;
+    display: inline-block;
+    background: var(--pink-800);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1.15rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 7px 18px;
+    border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(126,65,82,.25);
+  }
+  .demo-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .demo-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    transition: transform 1.1s cubic-bezier(.16, 1, .3, 1);
+  }
+  .demo-canvas img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: auto;
+    max-width: none;
+    max-height: none;
+  }
+  .demo-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    transform: translate(-260px, -190px);
+    transition: opacity .35s ease, transform .75s cubic-bezier(.16, 1, .3, 1);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .demo-cursor.show { opacity: 1; transform: translate(0, 0); }
+  .demo-cursor .ring {
+    position: absolute;
+    top: -26px;
+    left: -6px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 4px solid var(--pink-700);
+    opacity: 0;
+    transform: scale(.4);
+  }
+  .demo-cursor.pulse .ring {
+    animation: cursorPulse .5s ease-out;
+  }
+  @keyframes cursorPulse {
+    0% { opacity: .9; transform: scale(.4); }
+    100% { opacity: 0; transform: scale(1.8); }
+  }
+  .demo-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(126, 65, 82, .55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s ease;
+    z-index: 1;
+  }
+  .demo-modal-backdrop.show { opacity: 1; }
+  .demo-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(.94);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .4s cubic-bezier(.16, 1, .3, 1), opacity .4s ease;
+    z-index: 2;
+  }
+  .demo-modal.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .demo-modal img {
+    display: block;
+    width: 760px;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    border-radius: 16px;
+    box-shadow: 0 30px 70px rgba(40, 15, 24, .4);
+  }
+  .demo-stepbar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: var(--pink-700);
+    padding: 18px 64px;
+  }
+  .demo-stepbar .stepbar-n {
+    font-family: 'Playfair Display', serif;
+    font-weight: 800;
+    font-size: 1.7rem;
+    color: rgba(255,255,255,.75);
+    flex: none;
+    white-space: nowrap;
+  }
+  .demo-stepbar .stepbar-text { flex: 1; min-width: 0; }
+  .demo-stepbar .stepbar-t {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 1.45rem;
+    color: #fff;
+    display: block;
+  }
+  .demo-stepbar .stepbar-sub {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 400;
+    font-size: 1.6rem;
+    color: rgba(255,255,255,.78);
+    display: block;
+    margin-top: 2px;
+  }
+  .demo-stepbar .stepbar-progress {
+    width: 200px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.28);
+    flex: none;
+    overflow: hidden;
+  }
+  .demo-stepbar .stepbar-progress-fill {
+    height: 100%;
+    background: #fff;
+    border-radius: 2px;
+    transition: width .4s ease;
+  }
+  .demo-slide .frag-marker { display: none; }
+
+  .mono {
+    font-family: 'Courier New', monospace;
+    background: var(--pink-50);
+    border-radius: 6px;
+    padding: 4px 10px;
+    overflow-wrap: anywhere;
+  }
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+  }
+  .split > div {
+    padding: 28px 36px 0 0;
+    font-size: 1.7rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .split > div + div { padding-left: 36px; border-left: 1px solid var(--line); }
+  .split .num {
+    display: block;
+    font-family: 'Playfair Display', serif;
+    font-weight: 800;
+    font-size: 2.6rem;
+    color: var(--pink-700);
+    margin-bottom: 6px;
+  }
+  .split .num .gap-fail { color: var(--ink); }
+  .split .num .gap-arrow { color: var(--pink-300); font-size: 0.65em; margin: 0 2px; }
+  .bank-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 16px; }
+  .bank-chips .recovery-chip { font-size: 1.1rem; padding: 8px 20px; }
+  .gap-next { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 30px; text-align: center; }
+  .gap-next-arrow { color: var(--pink-300); flex: none; }
+  .gap-next .recovery-chip { font-size: 1.2rem; padding: 10px 22px; }
+
+  /* ---- slide 3: the measured-accuracy fact card ---- */
+  .measure-content { gap: 52px; }
+  .measure-content .statement { max-width: 46ch; margin: 0; }
+  .measure-content .detail { max-width: 62ch; margin: 0; }
+
+  /* a two-point status read against a named threshold: position on the
+     0-100% track plus color (pink-700 clears the bar, ink falls short)
+     carry the status redundantly with the direct labels, so no legend
+     or traffic-light red/green is needed. */
+  .accuracy-scale {
+    position: relative;
+    padding: 138px 28px 76px;
+  }
+  .accuracy-track {
+    position: relative;
+    height: 2px;
+    background: var(--line);
+    border-radius: 1px;
+  }
+  .accuracy-threshold {
+    position: absolute;
+    top: -16px;
+    bottom: -16px;
+    left: 70%;
+    width: 0;
+    border-left: 1px dashed var(--ink-soft);
+    transform: translateX(-50%);
+  }
+  .accuracy-threshold-label {
+    position: absolute;
+    left: 70%;
+    top: -98px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .accuracy-point { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+  .accuracy-dot {
+    display: block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--paper);
+  }
+  .accuracy-point-fail .accuracy-dot { background: var(--pink-500); }
+  .accuracy-point-pass .accuracy-dot { background: var(--pink-700); }
+  .accuracy-value {
+    position: absolute;
+    bottom: calc(100% + 18px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-family: 'Playfair Display', serif;
+    font-weight: 800;
+    font-size: 2.6rem;
+  }
+  .accuracy-point-fail .accuracy-value { color: var(--ink); }
+  .accuracy-point-pass .accuracy-value { color: var(--pink-700); }
+  .accuracy-caption {
+    position: absolute;
+    top: calc(100% + 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18ch;
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+
+  /* ---- closing slide: full-bleed reversed ---- */
+  .closing {
+    background: var(--pink-700);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 22px;
+  }
+  .closing .thanks {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 3rem;
+    color: rgba(255,255,255,0.9);
+  }
+  .closing .wordmark {
+    font-family: 'Playfair Display', serif;
+    font-weight: 800;
+    font-size: 5rem;
+    color: #fff;
+  }
+  .closing .link {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1.8rem;
+    color: rgba(255,255,255,0.88);
+    letter-spacing: 0.02em;
+  }
+  .closing .rule {
+    width: 72px;
+    height: 3px;
+    background: rgba(255,255,255,0.5);
+  }
+</style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <section>
+      <div class="slide">
+        <div class="rail">
+          <div class="num">01<small>/05</small></div>
+          <div>
+            <div class="rule"></div>
+            <div class="tag">Why this exists</div>
+          </div>
+        </div>
+        <div class="content">
+          <h2>Where this started</h2>
+          <div class="chips">
+            <span class="chip">OTP</span>
+            <span class="chip">Revolut · EUR</span>
+            <span class="chip">Revolut · HUF</span>
+            <span class="chip">Joint account</span>
+          </div>
+          <p class="statement">Seeing all of it together, honestly, was <b>the actual problem.</b></p>
+          <p class="detail">Built for anyone in the same situation — more than one bank, more than one currency, money shared with someone else.</p>
+        </div>
+      </div>
+      <aside class="notes">Not a private note — this is visible to everyone on the demo-day computer.</aside>
+    </section>
+
+    <section>
+      <div class="demo-slide">
+        <span class="demo-corner">02 / 05 · The demo</span>
+        <div class="demo-bg">
+          <div class="demo-canvas" id="demo-canvas">
+            <img src="assets/scene-base.png" alt="Expense Overview, real running app" id="demo-img">
+            <div class="demo-cursor" id="demo-cursor">
+              <div class="ring"></div>
+              <svg width="68" height="68" viewBox="0 0 38 38" style="filter:drop-shadow(0 3px 7px rgba(0,0,0,.55))">
+                <path d="M6 2 L6 30 L13 23.5 L18 34 L23 31.5 L18 21 L28 21 Z" fill="#241a1d" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="demo-modal-backdrop" id="demo-backdrop"></div>
+        <div class="demo-modal" id="demo-modal">
+          <img src="assets/scene-allocate.png" alt="Splitting the income across the selected expense">
+          <div class="demo-cursor" id="demo-modal-cursor">
+            <div class="ring"></div>
+            <svg width="68" height="68" viewBox="0 0 38 38" style="filter:drop-shadow(0 3px 7px rgba(0,0,0,.55))">
+              <path d="M6 2 L6 30 L13 23.5 L18 34 L23 31.5 L18 21 L28 21 Z" fill="#241a1d" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="demo-stepbar">
+          <span class="stepbar-n" id="demo-n">1 / 11</span>
+          <span class="stepbar-text">
+            <span class="stepbar-t" id="demo-t">Two views to choose from</span>
+            <span class="stepbar-sub" id="demo-sub">Personal spending, or the shared account — this demo stays in the personal view.</span>
+          </span>
+          <div class="stepbar-progress"><div class="stepbar-progress-fill" id="demo-fill" style="width:10%"></div></div>
+        </div>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+        <span class="fragment frag-marker"></span>
+      </div>
+      <script>
+      (function () {
+        var STEPS = [
+          { img: 'assets/scene-base.png', cx: 960, cy: 552, scale: 1.16,
+            t: 'Two views to choose from', sub: 'Personal spending, or the shared account — this demo stays in the personal view.' },
+          { img: 'assets/scene-base.png', cx: 760, cy: 440, scale: 2.0,
+            t: 'A clean summary first', sub: 'Income, spending, savings and balance for the selected month.' },
+          { img: 'assets/scene-base.png', cx: 760, cy: 661, scale: 1.8,
+            t: 'Income, by source', sub: 'Every incoming transfer, grouped by who sent it.' },
+          { img: 'assets/video-uncheck-before.png', cx: 960, cy: 559, scale: 0.95,
+            t: 'Filter, pie, and trend — together', sub: 'Toggle a category on the left; both charts react to the same selection.' },
+          { clip: { before: 'assets/video-uncheck-before.png', sequence: ['assets/video-uncheck-mid.png', 'assets/video-uncheck-after.png'], frameMs: 380, cx: 960, cy: 559, scale: 0.95, cursor: { x: 74, y: 449 } },
+            t: 'Uncheck a category', sub: 'Turn off Bills/Subscriptions — the pie and the trend recompute to 100% of what’s left, instantly.' },
+          { clip: { before: 'assets/video-uncheck-after.png', after: 'assets/video-click-after.png', cx: 960, cy: 559, scale: 0.95, cursor: { x: 1179, y: 372 } },
+            t: 'Click into a slice', sub: 'Groceries, for example — see the real transactions behind that wedge.' },
+          { img: 'assets/scene-deduction-together.png', cx: 1100, cy: 1080, scale: 0.92,
+            t: 'Income and expenses, side by side', sub: 'A shared cost about to get split — her transfer, and the bill it should offset.' },
+          { clip: { before: 'assets/scene-deduction-together.png', after: 'assets/scene-deduction-income-checked.png', cx: 880, cy: 704, scale: 1.6, cursor: { x: 534.2, y: 778.7 } },
+            t: 'A shared cost, split fairly', sub: 'My flatmate pays back exactly half the rent. Select her transfer…' },
+          { clip: { before: 'assets/scene-deduction-income-checked.png', after: 'assets/scene-deduction-both-checked.png', cx: 1100, cy: 1475, scale: 1.45, cursor: { x: 500.2, y: 1508.8 } },
+            t: '…and the expense it covers', sub: '…then the rent payment itself — the two get linked.' },
+          { img: 'assets/scene-deduction-both-checked.png', cx: 1100, cy: 1475, scale: 1.3, modal: true,
+            modalBefore: 'assets/scene-allocate.png', modalAfter: 'assets/scene-allocate-selected.png',
+            modalClicks: [{ x: 444.5, y: 229.6 }, { x: 127.7, y: 590.6 }],
+            t: 'Apply the split', sub: 'Half comes straight off what the rent actually cost me.' },
+          { img: 'assets/scene-result.png', cx: 1100, cy: 654, scale: 1.41,
+            t: 'The report updates', sub: 'The rent’s real cost drops, her income shrinks to match, and it’s logged for later.' }
+        ];
+        document.addEventListener('DOMContentLoaded', function () {
+          var img = document.getElementById('demo-img');
+          var canvas = document.getElementById('demo-canvas');
+          var cursor = document.getElementById('demo-cursor');
+          var backdrop = document.getElementById('demo-backdrop');
+          var modal = document.getElementById('demo-modal');
+          var modalImg = modal.querySelector('img');
+          var modalCursor = document.getElementById('demo-modal-cursor');
+          var nEl = document.getElementById('demo-n');
+          var tEl = document.getElementById('demo-t');
+          var subEl = document.getElementById('demo-sub');
+          var fillEl = document.getElementById('demo-fill');
+          var slide = img.closest('section');
+          var clipTimers = [];
+
+          function clearClipTimers() {
+            clipTimers.forEach(function (id) { clearTimeout(id); });
+            clipTimers = [];
+            cursor.classList.remove('show', 'pulse');
+            modalCursor.classList.remove('show', 'pulse');
+          }
+          // Positions the modal's own cursor in the modal image's natural
+          // pixel space (measured straight off a real screenshot), scaled to
+          // however large that image is actually rendered - independent of
+          // Reveal's outer scaling transform, since this cursor lives inside
+          // .demo-modal and inherits its coordinate space.
+          function placeModalCursor(nx, ny) {
+            var scale = modalImg.clientWidth / modalImg.naturalWidth;
+            modalCursor.style.left = (nx * scale) + 'px';
+            modalCursor.style.top = (ny * scale) + 'px';
+          }
+          function pulseModalCursor() {
+            modalCursor.classList.remove('pulse');
+            void modalCursor.offsetWidth;
+            modalCursor.classList.add('pulse');
+          }
+          function panTo(cx, cy, scale, instant) {
+            canvas.style.transition = instant ? 'none' : 'transform 1.1s cubic-bezier(.16, 1, .3, 1)';
+            var tx = 960 / scale - cx;
+            var ty = 540 / scale - cy;
+            canvas.style.transform = 'scale(' + scale + ') translate(' + tx + 'px,' + ty + 'px)';
+            if (instant) void canvas.offsetHeight;
+          }
+          function swapImg(src, cb) {
+            if (img.getAttribute('src') === src) { if (cb) cb(); return; }
+            img.setAttribute('src', src);
+            if (cb) cb();
+          }
+          function swapModalImg(src) {
+            if (modalImg.getAttribute('src') !== src) modalImg.setAttribute('src', src);
+          }
+          function setStep(i, instant) {
+            clearClipTimers();
+            var s = STEPS[i];
+            nEl.textContent = (i + 1) + ' / ' + STEPS.length;
+            tEl.textContent = s.t;
+            subEl.textContent = s.sub;
+            fillEl.style.width = (((i + 1) / STEPS.length) * 100) + '%';
+            backdrop.classList.toggle('show', !!s.modal);
+            modal.classList.toggle('show', !!s.modal);
+
+            if (s.modal && s.modalBefore) swapModalImg(s.modalBefore);
+            if (s.modalClicks && s.modalClicks.length) {
+              var pts = s.modalClicks;
+              placeModalCursor(pts[0].x, pts[0].y);
+              clipTimers.push(setTimeout(function () { modalCursor.classList.add('show'); }, 550));
+              clipTimers.push(setTimeout(function () {
+                pulseModalCursor();
+                // The real quick-fill buttons have no persisted "selected"
+                // look of their own (clicking just writes the amount field) -
+                // this swap is a presentation-only affordance showing which
+                // one the cursor just clicked.
+                if (s.modalAfter) swapModalImg(s.modalAfter);
+              }, 1050));
+              if (pts[1]) {
+                clipTimers.push(setTimeout(function () { placeModalCursor(pts[1].x, pts[1].y); }, 1750));
+                clipTimers.push(setTimeout(pulseModalCursor, 2550));
+              }
+            }
+
+            if (s.clip) {
+              var c = s.clip;
+              swapImg(c.before, function () {
+                panTo(c.cx, c.cy, c.scale, instant);
+                // A synthetic cursor needs time to fade in and walk to its
+                // target before anything changes (~1.2s). A real baked-in
+                // cursor (already in the frame) needs none of that - a long
+                // wait there just reads as the slide hanging before it
+                // "suddenly" works.
+                var startDelay = c.realCursor ? 250 : 1180;
+                if (!c.realCursor) {
+                  cursor.style.left = c.cursor.x + 'px';
+                  cursor.style.top = c.cursor.y + 'px';
+                  clipTimers.push(setTimeout(function () { cursor.classList.add('show'); }, 500));
+                  clipTimers.push(setTimeout(function () { cursor.classList.add('pulse'); }, 1000));
+                }
+                if (c.sequence) {
+                  c.sequence.forEach(function (frameSrc, idx) {
+                    clipTimers.push(setTimeout(function () { swapImg(frameSrc); }, startDelay + idx * (c.frameMs || 100)));
+                  });
+                  if (!c.realCursor) {
+                    clipTimers.push(setTimeout(function () { cursor.classList.remove('show', 'pulse'); }, startDelay + c.sequence.length * (c.frameMs || 100) + 400));
+                  }
+                } else {
+                  clipTimers.push(setTimeout(function () { swapImg(c.after); }, startDelay));
+                  if (!c.realCursor) {
+                    clipTimers.push(setTimeout(function () { cursor.classList.remove('show', 'pulse'); }, startDelay + 820));
+                  }
+                }
+              });
+            } else {
+              swapImg(s.img, function () { panTo(s.cx, s.cy, s.scale, instant); });
+            }
+          }
+          function fragCount() {
+            return slide.querySelectorAll('.fragment.visible').length;
+          }
+          // Preload every scene so the instant swaps above never wait on a
+          // network/decode fetch mid-presentation (that stall is what reads
+          // as "the chart doesn't update right" - the real redraw is instant,
+          // a slow image load isn't).
+          var allSrcs = {};
+          STEPS.forEach(function (s) {
+            if (s.img) allSrcs[s.img] = 1;
+            if (s.modalBefore) allSrcs[s.modalBefore] = 1;
+            if (s.modalAfter) allSrcs[s.modalAfter] = 1;
+            if (s.clip) {
+              allSrcs[s.clip.before] = 1;
+              if (s.clip.after) allSrcs[s.clip.after] = 1;
+              if (s.clip.sequence) s.clip.sequence.forEach(function (src) { allSrcs[src] = 1; });
+            }
+          });
+          Object.keys(allSrcs).forEach(function (src) {
+            var p = new Image();
+            p.src = src;
+            if (p.decode) { p.decode().catch(function () {}); }
+          });
+
+          setStep(0, true);
+          Reveal.on('fragmentshown', function (e) { if (slide.contains(e.fragment)) setStep(fragCount()); });
+          Reveal.on('fragmenthidden', function (e) { if (slide.contains(e.fragment)) setStep(fragCount()); });
+          Reveal.on('slidechanged', function (e) { if (e.currentSlide === slide) setStep(fragCount(), true); });
+        });
+      })();
+      </script>
+    </section>
+
+    <section>
+      <div class="slide">
+        <div class="rail">
+          <div class="num">03<small>/05</small></div>
+          <div>
+            <div class="rule"></div>
+            <div class="tag">Why it works</div>
+          </div>
+        </div>
+        <div class="content measure-content">
+          <h2>Measured, not assumed</h2>
+          <p class="statement">Checked against <b>551</b> real transactions, hand-categorized by me — because nothing else would tell me whether the categorizer actually worked.</p>
+          <div class="accuracy-scale">
+            <div class="accuracy-track">
+              <div class="accuracy-threshold"></div>
+              <span class="accuracy-threshold-label">Course's own ~70% bar</span>
+              <div class="accuracy-point accuracy-point-fail" style="left:62.5%">
+                <span class="accuracy-value">62.5%</span>
+                <span class="accuracy-dot"></span>
+                <span class="accuracy-caption">merchants it had never seen</span>
+              </div>
+              <div class="accuracy-point accuracy-point-pass" style="left:95.5%">
+                <span class="accuracy-value">95.5%</span>
+                <span class="accuracy-dot"></span>
+                <span class="accuracy-caption">merchants it already knew</span>
+              </div>
+            </div>
+          </div>
+          <p class="detail">The first ~130 came from my own real export. The second, larger batch came from a month the keyword list had never been tuned on — testing it against the same data I'd already tuned it with would've told me nothing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="slide">
+        <div class="rail">
+          <div class="num">04<small>/05</small></div>
+          <div>
+            <div class="rule"></div>
+            <div class="tag">What I learned</div>
+          </div>
+        </div>
+        <div class="content">
+          <h2>The lost localStorage</h2>
+          <p class="statement">I did my corrections — came back a week later, and they were just <b>gone</b>: everything lives only in this browser, with nothing backing it up anywhere else.</p>
+          <div class="recovery-wrap">
+            <div class="recovery-compare">
+              <div class="recovery-row fragment" data-fragment-index="0">
+                <span class="recovery-tag">Before</span>
+                <span class="recovery-chip recovery-chip-muted">Gone, no way back</span>
+              </div>
+              <div class="recovery-row fragment" data-fragment-index="1">
+                <span class="recovery-tag">Now</span>
+                <span class="recovery-chip recovery-chip-solid">Save to file</span>
+                <span class="recovery-arrow">→</span>
+                <span class="recovery-chip recovery-chip-solid">Restore from file</span>
+              </div>
+            </div>
+            <div class="recovery-face">
+              <svg class="recovery-face-sad fragment fade-in-then-out" data-fragment-index="0" viewBox="0 0 64 64" width="84" height="84">
+                <circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="24" cy="26" r="3" fill="currentColor"/>
+                <circle cx="40" cy="26" r="3" fill="currentColor"/>
+                <path d="M 22,42 Q 32,32 42,42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+              <svg class="recovery-face-happy fragment" data-fragment-index="1" viewBox="0 0 64 64" width="84" height="84">
+                <circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="24" cy="26" r="3" fill="currentColor"/>
+                <circle cx="40" cy="26" r="3" fill="currentColor"/>
+                <path d="M 20,36 Q 32,48 44,36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+          <p class="detail fragment" data-fragment-index="1">Now a repair step runs first automatically — and if that still fails, I can restore from a file I saved myself. Nothing lives in only one place anymore.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="slide">
+        <div class="rail">
+          <div class="num">05<small>/05</small></div>
+          <div>
+            <div class="rule"></div>
+            <div class="tag">What's next</div>
+          </div>
+        </div>
+        <div class="content">
+          <h2>Two honest gaps</h2>
+          <div class="split">
+            <div>
+              <span class="num">95.5% <span class="gap-arrow">→</span> <span class="gap-fail">62.5%</span></span>
+              Accuracy drops once a merchant hasn't been seen before — the same gap that measurement found.
+              <div class="gap-next">
+                <svg class="gap-next-arrow" viewBox="0 0 40 52" width="40" height="52">
+                  <path d="M20 2 L20 36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+                  <path d="M5 26 L20 44 L35 26" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="recovery-chip recovery-chip-solid">Fix the category by hand</span>
+              </div>
+            </div>
+            <div>
+              <span class="num">2 banks</span>
+              <div class="bank-chips">
+                <span class="recovery-chip recovery-chip-solid">OTP</span>
+                <span class="recovery-chip recovery-chip-solid">Revolut</span>
+                <span class="recovery-chip recovery-chip-pending">+ more banks</span>
+              </div>
+              Today it only reads four exact sheets: OTP, Revolut EUR, Revolut HUF, and the joint account — nothing else works yet.
+              <div class="gap-next">
+                <svg class="gap-next-arrow" viewBox="0 0 40 52" width="40" height="52">
+                  <path d="M20 2 L20 36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+                  <path d="M5 26 L20 44 L35 26" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="recovery-chip recovery-chip-solid">Support more banks</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="closing">
+        <span class="thanks">Thank you for your attention</span>
+        <span class="wordmark">Expense Overview</span>
+        <div class="rule"></div>
+        <div class="link">esst-prog2.github.io/Financial-Planner</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({ hash: true, width: 1920, height: 1080 });
+</script>
+</body>
+</html>
