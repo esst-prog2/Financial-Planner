@@ -117,6 +117,11 @@ const CONTRIBUTION_ROUND_INTERVAL_DAYS = 9;
 const TRANSFER_RECIPIENTS = ['Példa Kata', 'Fikció Zsolt', 'Minta Zsuzsanna'];
 const TRANSFER_SENDERS = ['Fikció Zsolt', 'Példa Kata'];
 const LANDLORD_NAME = 'Minta Péter';
+// A flatmate who pays back exactly half the rent, a day after it's paid -
+// the canonical case the income/expense deduction feature is built around
+// (see the "Nagyobb fele" quick-fill in app.js): the transfer only reduces
+// what the rent actually cost, it isn't really income.
+const ROOMMATE_NAME = 'Minta Dóra';
 const HAIRDRESSER_NAME = 'Példa Fanni';
 const EMPLOYER_NAME = 'Minta Munkáltató Kft.';
 
@@ -266,6 +271,10 @@ export function generateSampleWorkbookData({ seed = 1, days = 45, salaryHuf = 38
     // invented landlord's name) is what categorizes it as a bill.
     if (dom === 15) {
       otp(date, { type: 'ÁTUTALÁS', counterparty: LANDLORD_NAME, memo: 'Havi Lakbér', amount: -110000 });
+    }
+    // The flatmate's share, a day later - exactly half of the rent above.
+    if (dom === 16) {
+      otp(date, { type: 'ÁTUTALÁS', counterparty: ROOMMATE_NAME, memo: 'Albérleti díj fele', amount: 55000 });
     }
     if (dom === 18) {
       revolut(sheets.joint, date, { description: 'MVM NEXT ENERGIAK', amount: -randomInt(random, 12000, 28000) });
